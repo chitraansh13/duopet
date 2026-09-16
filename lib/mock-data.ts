@@ -1,20 +1,16 @@
+import { currentUserId, partnerUserId } from "@/lib/identity";
+import { progressData } from "./progress-data";
+import { petProfile } from "./pet-data";
 export const APP_NAME = "DuoPet";
 
 export type PetMood = "happy" | "neutral" | "waiting" | "sleepy" | "excited" | "celebrating";
 
 export const mockData = {
-  todayLabel: "Monday, Sep 14",
+  todayLabel: "Today",
   users: [
-    { id: "you" as const, label: "You", color: "var(--accent)" },
-    { id: "friend" as const, label: "Friend", color: "var(--friend)" },
+    { id: currentUserId, label: "You", color: "var(--accent)" },
+    { id: partnerUserId, label: "Friend", color: "var(--friend)" },
   ],
-  streak: 14,
-  pet: {
-    name: "Brownie",
-    level: 4,
-    xp: 320,
-    xpGoal: 500,
-    mood: "happy" as PetMood,
-    message: "Brownie is proud of you two today.",
-  },
+  streak: progressData.streak.current,
+  pet: { ...petProfile, xpGoal: petProfile.xpForNextLevel, message: "Brownie is proud of you two today." },
 };

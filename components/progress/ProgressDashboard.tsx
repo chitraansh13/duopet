@@ -26,7 +26,7 @@ export function ProgressDashboard() {
         </header>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="order-2 lg:order-1"><ProgressSummary summary={summary} currentStreak={progressData.streak.current} bestStreak={progressData.streak.best} perfectDays={progressData.summaries.month.perfectDays} /></div>
+          <div className="order-2 lg:order-1"><ProgressSummary summary={summary} currentStreak={progressData.streak.current} bestStreak={progressData.streak.best} perfectDays={summary.perfectDays} /></div>
           <div className="order-1 lg:order-2"><ProgressCompanion streak={progressData.streak.current} /></div>
         </div>
 

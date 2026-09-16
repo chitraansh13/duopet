@@ -2,7 +2,7 @@
 
 import { BedDouble, CircleDot, Flower2, Frame, LockKeyhole, PartyPopper, Ribbon, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Accessory, RoomItem } from "@/lib/pet-data";
 import type { DogAccessory } from "@/components/BrowniePet";
 
@@ -11,9 +11,11 @@ const roomIcons = { Bed: BedDouble, Toy: CircleDot, Plant: Flower2, Frame };
 
 export function AccessoryPicker({ items, selected, onSelect }: { items: Accessory[]; selected: DogAccessory; onSelect: (id: DogAccessory) => void }) {
   const [lockedNotice, setLockedNotice] = useState<DogAccessory | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
   function choose(item: Accessory) {
     if (item.unlocked) onSelect(item.id);
-    else { setLockedNotice(item.id); window.setTimeout(() => setLockedNotice(null), 650); }
+    else { setLockedNotice(item.id); if (noticeTimer.current) clearTimeout(noticeTimer.current); noticeTimer.current = setTimeout(() => setLockedNotice(null), 650); }
   }
   return (
     <section className="rounded-[24px] bg-surface p-5 shadow-card sm:p-6">
@@ -32,9 +34,11 @@ export function AccessoryPicker({ items, selected, onSelect }: { items: Accessor
 
 export function RoomItemPicker({ items, activeItems, onToggle }: { items: RoomItem[]; activeItems: string[]; onToggle: (id: string) => void }) {
   const [lockedNotice, setLockedNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
   function choose(item: RoomItem) {
     if (item.unlocked) onToggle(item.id);
-    else { setLockedNotice(item.id); window.setTimeout(() => setLockedNotice(null), 650); }
+    else { setLockedNotice(item.id); if (noticeTimer.current) clearTimeout(noticeTimer.current); noticeTimer.current = setTimeout(() => setLockedNotice(null), 650); }
   }
   return (
     <section className="rounded-[24px] bg-surface p-5 shadow-card sm:p-6">

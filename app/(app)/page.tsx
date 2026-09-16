@@ -1,8 +1,7 @@
 "use client";
-
 import { ArrowRight, Flame } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { deriveToday } from "@/lib/today";
 import { AppShell } from "@/components/AppShell";
 import { DuoProgress } from "@/components/DuoProgress";
 import { ActiveChallengePreview } from "@/components/goals/ActiveChallengePreview";
@@ -10,38 +9,11 @@ import { useGoals } from "@/components/goals/GoalProvider";
 import { TodayGoalRow } from "@/components/goals/TodayGoalRow";
 import { PetCard } from "@/components/PetCard";
 import { UserProgress } from "@/components/UserProgress";
-import { getGoalTarget, isGoalComplete, mockGoals, userDailyProgress } from "@/lib/goal-data";
-import { mockData, type PetMood } from "@/lib/mock-data";
+import { mockData } from "@/lib/mock-data";
 
 export default function TodayPage() {
-  const { goals } = useGoals();
-  const activeGoals = goals.filter((goal) => goal.status === "active");
-  const sharedGoals = activeGoals.filter((goal) => goal.scope === "shared");
-  const yourGoals = activeGoals.filter((goal) => goal.scope === "personal" && getGoalTarget(goal, "you"));
-  const youProgress = userDailyProgress(activeGoals, "you");
-  const friendProgress = userDailyProgress(activeGoals, "friend");
-  const duoProgress = Math.round((youProgress + friendProgress) / 2);
-  const pairedGoals = sharedGoals.filter((goal) => goal.targets.every((target) => isGoalComplete(goal, target))).length;
-  const allTargets = activeGoals.flatMap((goal) => goal.targets.map((target) => ({ goal, target })));
-  const perfectDay = allTargets.length > 0 && allTargets.every(({ goal, target }) => isGoalComplete(goal, target));
-  const waiting = sharedGoals.some((goal) => {
-    const you = getGoalTarget(goal, "you");
-    const friend = getGoalTarget(goal, "friend");
-    return you && friend && isGoalComplete(goal, you) !== isGoalComplete(goal, friend);
-  });
-  const mood: PetMood = perfectDay ? "celebrating" : duoProgress >= 80 ? "excited" : waiting ? "waiting" : duoProgress > 0 ? "happy" : "sleepy";
-  const earnedXp = activeGoals.reduce((total, goal) => {
-    const current = getGoalTarget(goal, "you");
-    const initialGoal = mockGoals.find((item) => item.id === goal.id);
-    const initial = initialGoal && getGoalTarget(initialGoal, "you");
-    return total + (current && isGoalComplete(goal, current) && (!initial || !isGoalComplete(initialGoal, initial)) ? goal.xp : 0);
-  }, 0);
-  const pet = useMemo(() => ({
-    ...mockData.pet,
-    mood,
-    xp: mockData.pet.xp + earnedXp,
-    message: mood === "excited" ? "Your duo’s got momentum. Brownie can feel it." : mood === "sleepy" ? "One small win is enough to get Brownie’s tail moving." : mockData.pet.message,
-  }), [earnedXp, mood]);
+  const { goals, currentUserId, partnerUserId } = useGoals();
+  const { sharedGoals, yourGoals, youProgress, friendProgress, duoProgress, pairedGoals, perfectDay, pet } = deriveToday(goals, currentUserId, partnerUserId);
 
   return (
     <AppShell>
@@ -54,7 +26,7 @@ export default function TodayPage() {
           </header>
 
           <section className="relative order-2 grid grid-cols-2 gap-3" aria-label="Your duo's daily progress">
-            {mockData.users.map((user) => <UserProgress key={user.id} {...user} progress={user.id === "you" ? youProgress : friendProgress} />)}
+            {mockData.users.map((user, index) => <UserProgress key={user.id} {...user} progress={index === 0 ? youProgress : friendProgress} />)}
             <span className="absolute left-1/2 top-1/2 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-cream bg-surface text-xs font-black text-accent shadow-sm" aria-hidden="true">+</span>
           </section>
 

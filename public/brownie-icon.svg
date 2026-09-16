@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Brownie, DuoPet's fluffy poodoodle mascot">
   <defs>
-    <linearGradient id="bg" x1="28" y1="20" x2="228" y2="238" gradientUnits="userSpaceOnUse"><stop stop-color="#7B3A46"/><stop offset="1" stop-color="#54232C"/></linearGradient>
+    <linearGradient id="bg" x1="28" y1="20" x2="228" y2="238" gradientUnits="userSpaceOnUse"><stop stop-color="#F4EBDD"/><stop offset="1" stop-color="#EADFCB"/></linearGradient>
     <linearGradient id="fur" x1="85" y1="52" x2="169" y2="205" gradientUnits="userSpaceOnUse"><stop stop-color="#DCA36D"/><stop offset="1" stop-color="#B97543"/></linearGradient>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#35171D" flood-opacity=".28"/></filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#6F4C35" flood-opacity=".18"/></filter>
   </defs>
   <rect width="256" height="256" rx="58" fill="url(#bg)"/>
   <g filter="url(#shadow)">

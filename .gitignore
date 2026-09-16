@@ -5,3 +5,9 @@ out
 *.log
 *.tsbuildinfo
 .DS_Store
+
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/

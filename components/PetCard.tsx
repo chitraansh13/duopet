@@ -5,12 +5,18 @@ import { useEffect, useRef, useState } from "react";
 import { BrowniePet, type DogMood } from "./BrowniePet";
 import type { PetMood } from "@/lib/mock-data";
 
+import { useSession } from "./SessionProvider";
+
 interface PetCardProps {
   pet: { name: string; level: number; xp: number; xpGoal: number; mood: PetMood; message: string };
   perfectDay: boolean;
 }
 
 export function PetCard({ pet, perfectDay }: PetCardProps) {
+  const { accessory, encouragement, duo } = useSession();
+  pet = { ...pet, name: duo.brownieName };
+  const reactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (reactionTimer.current) clearTimeout(reactionTimer.current); }, []);
   const [heart, setHeart] = useState(0);
   const [reacting, setReacting] = useState(false);
   const previousXp = useRef(pet.xp);
@@ -28,7 +34,8 @@ export function PetCard({ pet, perfectDay }: PetCardProps) {
   function giveHeart() {
     setHeart((value) => value + 1);
     setReacting(true);
-    window.setTimeout(() => setReacting(false), 700);
+    if (reactionTimer.current) clearTimeout(reactionTimer.current);
+    reactionTimer.current = setTimeout(() => setReacting(false), 700);
   }
 
   const message = perfectDay
@@ -58,10 +65,10 @@ export function PetCard({ pet, perfectDay }: PetCardProps) {
             <Heart className="size-7 fill-accent text-accent" />
           </span>
           <span className="absolute bottom-5 h-8 w-48 rounded-[50%] bg-ink/10 blur-sm" />
-          <BrowniePet mood={mood} reacting={reacting} className="relative h-full w-full" />
+          <BrowniePet accessory={accessory} mood={mood} reacting={reacting} className="relative h-full w-full" />
         </button>
 
-        <p className="min-h-10 text-center text-sm font-bold leading-5 text-ink/85">{message}</p>
+        <p className="min-h-10 text-center text-sm font-bold leading-5 text-ink/85">{encouragement ? message : ""}</p>
         <div className="mt-4 rounded-2xl bg-subtle/80 p-3.5">
           <div className="mb-2.5 flex justify-between text-xs font-semibold text-muted">
             <span>Next level</span><span>{pet.xp} / {pet.xpGoal} XP</span>

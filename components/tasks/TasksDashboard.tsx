@@ -1,11 +1,10 @@
 "use client";
-
 import { AnimatePresence, motion } from "motion/react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useGoals } from "@/components/goals/GoalProvider";
-import { getGoalTarget, type GoalDefinition } from "@/lib/goal-data";
+import { getGoalTarget } from "@/lib/goal-data";
 import { TaskDetail } from "./TaskDetail";
 import { TaskRow } from "./TaskRow";
 
@@ -13,10 +12,11 @@ type Filter = "all" | "shared" | "mine" | "paused";
 const filters: Array<{ id: Filter; label: string }> = [{ id: "all", label: "All" }, { id: "shared", label: "Shared" }, { id: "mine", label: "Mine" }, { id: "paused", label: "Paused" }];
 
 export function TasksDashboard() {
-  const { goals } = useGoals();
+  const { goals, currentUserId } = useGoals();
   const [filter, setFilter] = useState<Filter>("all");
-  const [selected, setSelected] = useState<GoalDefinition | null>(null);
-  const manageable = goals.filter((goal) => goal.scope === "shared" || getGoalTarget(goal, "you"));
+  const [selectedId, setSelected] = useState<string | null>(null);
+  const selected = goals.find((goal) => goal.id === selectedId);
+  const manageable = goals.filter((goal) => goal.scope === "shared" || getGoalTarget(goal, currentUserId));
   const visible = manageable.filter((goal) => {
     if (filter === "paused") return goal.status === "paused";
     if (goal.status !== "active") return false;
@@ -35,11 +35,11 @@ export function TasksDashboard() {
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
-          {shared.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Shared goals</h2><span className="text-xs text-muted">{shared.length} goals</span></div><div className="grid gap-3 md:grid-cols-2">{shared.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal)} />)}</div></section>}
-          {personal.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">My goals</h2><span className="text-xs text-muted">Only you can update these</span></div><div className="grid gap-3 md:grid-cols-2">{personal.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal)} />)}</div></section>}
+          {shared.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Shared goals</h2><span className="text-xs text-muted">{shared.length} goals</span></div><div className="grid gap-3 md:grid-cols-2">{shared.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
+          {personal.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">My goals</h2><span className="text-xs text-muted">Only you can update these</span></div><div className="grid gap-3 md:grid-cols-2">{personal.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
           {visible.length === 0 && <div className="rounded-[1.5rem] bg-surface p-10 text-center shadow-soft"><p className="font-bold">Nothing here yet.</p><p className="mt-1 text-sm text-muted">Paused goals will wait here until you’re ready.</p></div>}
         </div>
-        <AnimatePresence mode="wait">{selected ? <motion.div key={selected.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}><TaskDetail goal={goals.find((goal) => goal.id === selected.id) ?? selected} onClose={() => setSelected(null)} /></motion.div> : <aside className="hidden rounded-[1.5rem] bg-surface p-6 text-center shadow-soft lg:block"><p className="font-bold">Choose a task</p><p className="mt-2 text-sm leading-6 text-muted">Open any goal to see targets, today’s status, and recent history.</p></aside>}</AnimatePresence>
+        <AnimatePresence mode="wait">{selected ? <motion.div key={selected.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}><TaskDetail goal={selected} onClose={() => setSelected(null)} /></motion.div> : <aside className="hidden rounded-[1.5rem] bg-surface p-6 text-center shadow-soft lg:block"><p className="font-bold">Choose a task</p><p className="mt-2 text-sm leading-6 text-muted">Open any goal to see targets, today’s status, and recent history.</p></aside>}</AnimatePresence>
       </div>
       <div className="flex justify-center"><Link href="/tasks/manage" className="inline-flex min-h-11 items-center text-xs font-bold text-accent">Manage goals</Link></div>
     </div>

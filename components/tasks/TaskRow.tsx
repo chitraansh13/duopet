@@ -1,14 +1,15 @@
 "use client";
-
 import { ChevronRight, Pause } from "lucide-react";
 import { motion } from "motion/react";
 import { getGoalTarget, type GoalDefinition } from "@/lib/goal-data";
 import { GoalIcon } from "@/components/goals/GoalIcon";
 import { GoalProgress } from "@/components/goals/GoalProgress";
+import { useGoals } from "@/components/goals/GoalProvider";
 
 export function TaskRow({ goal, selected, onSelect }: { goal: GoalDefinition; selected: boolean; onSelect: () => void }) {
-  const you = getGoalTarget(goal, "you");
-  const friend = getGoalTarget(goal, "friend");
+  const { currentUserId, partnerUserId } = useGoals();
+  const you = getGoalTarget(goal, currentUserId);
+  const friend = getGoalTarget(goal, partnerUserId);
   return (
     <motion.button layout type="button" onClick={onSelect} aria-pressed={selected} className={`w-full rounded-[1.25rem] bg-surface p-4 text-left shadow-soft transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${selected ? "ring-1 ring-accent/25" : "hover:shadow-card"}`}>
       <div className="flex items-center gap-3">

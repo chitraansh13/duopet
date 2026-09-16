@@ -31,12 +31,12 @@ export function DuoEnergy({ value }: { value: number }) {
   );
 }
 
-export function NextUnlock({ xpRemaining }: { xpRemaining: number }) {
+export function NextUnlock({ xpRemaining, level = 5 }: { xpRemaining: number; level?: number }) {
   return (
     <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .1 }} className="relative overflow-hidden rounded-[22px] bg-luxury-soft p-5 shadow-soft">
       <Sparkles className="absolute -right-4 -top-4 size-24 text-friend/15" />
-      <p className="text-xs font-semibold text-muted">Next unlock · Level 5</p>
-      <div className="mt-3 flex items-center gap-4"><div className="relative grid size-16 shrink-0 place-items-center rounded-2xl bg-surface/75 shadow-soft"><span className="h-8 w-11 rounded-b-xl bg-accent [clip-path:polygon(0_0,50%_25%,100%_0,82%_100%,50%_70%,18%_100%)]" /><span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-ink text-surface"><LockKeyhole className="size-3" /></span></div><div><h2 className="font-bold">Oxblood Bandana</h2><p className="mt-1 text-sm text-muted">{xpRemaining} XP to go</p><p className="mt-2 text-xs font-medium text-luxury">Your next little milestone</p></div></div>
+      <p className="text-xs font-semibold text-muted">{level <= 6 ? "Next unlock" : "Next milestone"} · Level {level}</p>
+      <div className="mt-3 flex items-center gap-4"><div className="relative grid size-16 shrink-0 place-items-center rounded-2xl bg-surface/75 shadow-soft"><span className="h-8 w-11 rounded-b-xl bg-accent [clip-path:polygon(0_0,50%_25%,100%_0,82%_100%,50%_70%,18%_100%)]" /><span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-ink text-surface"><LockKeyhole className="size-3" /></span></div><div><h2 className="font-bold">{level === 5 ? "Oxblood Bandana" : level === 6 ? "Trail Hat" : "Keep growing together"}</h2><p className="mt-1 text-sm text-muted">{xpRemaining} XP to go</p><p className="mt-2 text-xs font-medium text-luxury">Your next little milestone</p></div></div>
     </motion.section>
   );
 }

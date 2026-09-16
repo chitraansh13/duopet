@@ -2,17 +2,21 @@
 
 import { MotionConfig } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import type { DogAccessory, DogMood } from "@/components/BrowniePet";
 import { AccessoryPicker, RoomItemPicker } from "./PetCustomization";
 import { PetActivityFeed } from "./PetActivityFeed";
 import { BrownieScene } from "./BrownieScene";
 import { DuoEnergy, NextUnlock, PetStatus } from "./PetOverview";
-import { petAccessories, petActivities, petLevels, petMoodMessages, petProfile, petReactions, petRoomItems } from "@/lib/pet-data";
+import { isPetItemUnlocked, petAccessories, petMoodMessages, petReactions, petRoomItems } from "@/lib/pet-data";
+
+import { useSession } from "@/components/SessionProvider";
+import { useGoals } from "@/components/goals/GoalProvider";
+import { progressData } from "@/lib/progress-data";
+import { deriveToday } from "@/lib/today";
 
 export function PetDashboard() {
-  const [accessory, setAccessory] = useState<DogAccessory>(petProfile.equippedAccessory);
-  const [activeRoomItems, setActiveRoomItems] = useState(["cozy-bed", "tennis-ball"]);
-  const [mood, setMood] = useState<DogMood>(petProfile.mood);
+  const { accessory, setAccessory, activeRoomItems, setActiveRoomItems, encouragement, duo } = useSession();
+  const { goals, currentUserId, partnerUserId } = useGoals();
+  const { pet, activities } = deriveToday(goals, currentUserId, partnerUserId);
   const [reacting, setReacting] = useState(false);
   const [reactionKey, setReactionKey] = useState(0);
   const [reaction, setReaction] = useState(petReactions[0]);
@@ -25,16 +29,23 @@ export function PetDashboard() {
     const nextKey = reactionKey + 1;
     setReactionKey(nextKey);
     setReaction(petReactions[nextKey % petReactions.length]);
-    setMood("excited");
     setReacting(true);
-    reactionTimer.current = setTimeout(() => { setReacting(false); setMood(petProfile.mood); }, 950);
+    reactionTimer.current = setTimeout(() => { setReacting(false); }, 950);
   }
 
   function toggleRoomItem(id: string) {
     setActiveRoomItems((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
-  const profile = { ...petProfile, mood, equippedAccessory: accessory };
+  const accessories = petAccessories.map((item) => ({ ...item, unlocked: isPetItemUnlocked(item, pet.level, progressData.summaries.month.perfectDays) }));
+  const roomItems = petRoomItems.map((item) => ({ ...item, unlocked: isPetItemUnlocked(item, pet.level, progressData.summaries.month.perfectDays) }));
+  const mood = reacting ? "excited" : pet.mood;
+  const profile = { ...pet, name: duo.brownieName, mood, equippedAccessory: accessory };
+  const levels = [
+    { level: profile.level, state: "Current" as const, detail: `${profile.xp} XP` },
+    { level: profile.level + 1, state: "Next" as const, detail: `${profile.xpForNextLevel - profile.xp} XP away` },
+    { level: profile.level + 2, state: "Locked" as const, detail: "More adventures ahead" },
+  ];
 
   return (
     <MotionConfig reducedMotion="user" transition={{ duration: .35, ease: "easeOut" }}>
@@ -48,18 +59,18 @@ export function PetDashboard() {
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,.7fr)]">
           <BrownieScene mood={mood} accessory={accessory} reacting={reacting} reaction={reaction} reactionKey={reactionKey} activeRoomItems={activeRoomItems} onPet={petBrownie} />
           <div className="space-y-4">
-            <PetStatus profile={profile} message={petMoodMessages[mood]} levels={petLevels} />
+            <PetStatus profile={profile} message={encouragement ? petMoodMessages[mood] : ""} levels={levels} />
             <DuoEnergy value={profile.duoEnergy} />
-            <NextUnlock xpRemaining={profile.xpForNextLevel - profile.xp} />
+            <NextUnlock xpRemaining={profile.xpForNextLevel - profile.xp} level={profile.level + 1} />
           </div>
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-2">
-          <AccessoryPicker items={petAccessories} selected={accessory} onSelect={setAccessory} />
-          <RoomItemPicker items={petRoomItems} activeItems={activeRoomItems} onToggle={toggleRoomItem} />
+          <AccessoryPicker items={accessories} selected={accessory} onSelect={setAccessory} />
+          <RoomItemPicker items={roomItems} activeItems={activeRoomItems} onToggle={toggleRoomItem} />
         </div>
 
-        <PetActivityFeed activities={petActivities} />
+        <PetActivityFeed activities={activities} />
       </div>
     </MotionConfig>
   );

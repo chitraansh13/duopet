@@ -8,8 +8,8 @@ export function ProgressInsights({ habits, days, period, completedDelta }: { hab
   const sortedHabits = [...habits].sort((a, b) => b.rates[period].overall - a.rates[period].overall);
   const strongestDay = [...days].sort((a, b) => (b.you + b.friend) - (a.you + a.friend))[0];
   const insights = [
-    `Your strongest shared habit is ${sortedHabits[0].name}.`,
-    `You two are most consistent on ${strongestDay.day}s.`,
+    `Your strongest shared habit is ${sortedHabits[0]?.name ?? "not yet known"}.`,
+    `You two are most consistent on ${strongestDay?.day ?? "upcoming day"}s.`,
     `${sortedHabits.at(-1)?.name} needs a little love.`,
     `You completed ${completedDelta} more habits than last week.`,
   ];

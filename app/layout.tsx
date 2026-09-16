@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { GoalProvider } from "@/components/goals/GoalProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,7 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
-      <body className="min-h-screen font-sans antialiased"><GoalProvider>{children}</GoalProvider></body>
+      <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );
 }

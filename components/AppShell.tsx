@@ -1,6 +1,5 @@
 import { BottomNav } from "./BottomNav";
 import { APP_NAME } from "@/lib/mock-data";
-import { ThemeControl } from "./ThemeControl";
 import Link from "next/link";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -12,9 +11,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p className="text-lg font-extrabold tracking-tight"><span className="text-accent">Duo</span>{APP_NAME.replace("Duo", "")}<span className="ml-0.5 text-luxury">·</span></p>
         </div>
         <div className="flex items-center gap-3">
-          <ThemeControl />
-          <div className="flex -space-x-2" aria-label="Your duo">
-            <Link href="/profile" aria-label="Open profile" className="relative z-10 grid size-8 place-items-center rounded-full border-2 border-cream bg-accent text-[10px] font-bold text-white">YOU</Link>
+          <div className="glass-material flex -space-x-2 rounded-full p-1" aria-label="Your duo">
+            <Link href="/profile" aria-label="Open profile and settings" className="relative z-10 grid size-9 place-items-center rounded-full border-2 border-cream bg-accent text-[10px] font-bold text-white shadow-soft transition-transform active:scale-95">YOU</Link>
             <span className="grid size-8 place-items-center rounded-full border-2 border-cream bg-friend text-[10px] font-bold text-white">F</span>
           </div>
         </div>
