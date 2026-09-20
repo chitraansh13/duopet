@@ -1,8 +1,9 @@
 -- ============================================================================
 -- DESTRUCTIVE TEST-DATA RESET ONLY — NEVER RUN AGAINST REAL USER DATA
 -- ============================================================================
--- Purpose: empty DuoPet application data before deleting disposable test users
--- from Supabase Authentication -> Users.
+-- Purpose: empty duo/goal/pet test data before deleting disposable test users
+-- from Supabase Authentication -> Users. Keep public.profiles while their
+-- auth.users rows still exist; auth deletion cascades to the matching profile.
 --
 -- This file is intentionally outside supabase/migrations. It must be run
 -- manually by a project owner in the Supabase SQL Editor. It does not delete
@@ -32,8 +33,7 @@ truncate table
   public.pet_unlocks,
   public.duo_pets,
   public.duo_members,
-  public.duos,
-  public.profiles;
+  public.duos;
 
 -- Fail the transaction if any allowlisted application row remains.
 do $$
@@ -51,7 +51,6 @@ begin
     union all select 1 from public.duo_pets
     union all select 1 from public.duo_members
     union all select 1 from public.duos
-    union all select 1 from public.profiles
   ) then
     raise exception 'DuoPet test-data reset verification failed; transaction rolled back';
   end if;

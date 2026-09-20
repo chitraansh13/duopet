@@ -5,20 +5,48 @@ import { btree_gist } from '@electric-sql/pglite/contrib/btree_gist';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 const db = new PGlite({ extensions: { btree_gist, pgcrypto } });
 await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
-create schema auth; create table auth.users(id uuid primary key);
+create schema auth; create table auth.users(id uuid primary key, raw_user_meta_data jsonb);
 create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
 grant usage on schema auth to authenticated; grant usage on schema public to authenticated;
 create schema extensions; set search_path=public,extensions;`);
+const missingId = '00000000-0000-4000-8000-000000000099';
+const preservedId = '00000000-0000-4000-8000-000000000098';
+let bootstrapChecks = 0;
 for (const file of readdirSync('supabase/migrations').sort()) {
+  if (file === '202609200001_repair_profile_bootstrap.sql') {
+    // Match hosted drift: Auth users survive a test-data reset of profiles.
+    await db.query('insert into auth.users(id) values ($1)',[missingId]);
+    await db.query('insert into auth.users(id,raw_user_meta_data) values ($1,$2::jsonb)',[preservedId,JSON.stringify({ optional: 'ignored' })]);
+    assert.equal((await db.query('select count(*)::int n from profiles where id=$1',[missingId])).rows[0].n,1); bootstrapChecks++;
+    await db.query("update profiles set display_name='Keep this name' where id=$1",[preservedId]);
+    await db.query('delete from profiles where id=$1',[missingId]);
+  }
   try { await db.exec(readFileSync('supabase/migrations/'+file,'utf8')); }
   catch(error) { console.error(file, error.message); process.exitCode=1; await db.close(); process.exit(1); }
 }
+assert.equal((await db.query('select count(*)::int n from profiles where id=$1',[missingId])).rows[0].n,1); bootstrapChecks++;
+assert.equal((await db.query('select display_name from profiles where id=$1',[preservedId])).rows[0].display_name,'Keep this name'); bootstrapChecks++;
+const repair = readFileSync('supabase/migrations/202609200001_repair_profile_bootstrap.sql','utf8');
+await db.exec(repair);
+assert.equal((await db.query('select count(*)::int n from profiles where id in ($1,$2)',[missingId,preservedId])).rows[0].n,2); bootstrapChecks++;
+assert.equal((await db.query('select display_name from profiles where id=$1',[preservedId])).rows[0].display_name,'Keep this name'); bootstrapChecks++;
+for (const [id,metadata] of [
+  ['00000000-0000-4000-8000-000000000097',null],
+  ['00000000-0000-4000-8000-000000000096',JSON.stringify({})],
+]) {
+  await db.query('insert into auth.users(id,raw_user_meta_data) values ($1,$2::jsonb)',[id,metadata]);
+  assert.equal((await db.query('select count(*)::int n from profiles where id=$1',[id])).rows[0].n,1); bootstrapChecks++;
+}
+assert.equal((await db.query("select count(*)::int n from pg_trigger where tgname='on_auth_user_created' and tgrelid='auth.users'::regclass")).rows[0].n,1); bootstrapChecks++;
 const ids = [1,2,3,4].map(n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`);
 for(const id of ids) await db.query('insert into auth.users values ($1)',[id]);
 async function as(n) { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub',$1,false)",[ids[n]]); await db.exec('set role authenticated'); }
 async function one(sql,args=[]) { return (await db.query(sql,args)).rows[0]; }
 let checks=0;
 async function reject(sql,args=[]) { await assert.rejects(()=>db.query(sql,args)); checks++; }
+await as(0);
+assert.equal((await db.query("update profiles set nickname='Own' where id=$1 returning id",[ids[0]])).rows.length,1); checks++;
+assert.equal((await db.query("update profiles set nickname='Wrong' where id=$1 returning id",[ids[1]])).rows.length,0); checks++;
 for(let n=0;n<4;n++) { await as(n); await db.query("update profiles set display_name=$1 where id=$2",['User '+n,ids[n]]); }
 await as(0);
 await reject("select create_duo(null,'Brownie','Mars/City')");
@@ -95,10 +123,11 @@ await db.exec('reset role; set role anon');
 await reject('select * from profiles'); await reject('select get_duo_context()'); await reject("select create_duo(null,'Brownie','UTC')"); await reject('select set_goal_checkin($1,current_date,1)',[goal]);
 await db.exec('reset role');
 await db.exec(readFileSync('supabase/manual/DESTRUCTIVE_TEST_DATA_RESET.sql','utf8'));
-for(const table of ['profiles','duos','duo_members','duo_pets','pet_unlocks','pet_room_items','goals','goal_assignments','goal_checkins','challenges','challenge_results','challenge_result_members','pet_xp_events']) {
+for(const table of ['duos','duo_members','duo_pets','pet_unlocks','pet_room_items','goals','goal_assignments','goal_checkins','challenges','challenge_results','challenge_result_members','pet_xp_events']) {
   assert.equal((await one(`select count(*)::int n from ${table}`)).n,0); checks++;
 }
-assert.equal((await one('select count(*)::int n from auth.users')).n,4); checks++;
-console.log(`Database migrations and ${checks} security/invariant assertions passed (PGlite PostgreSQL).`);
+assert.equal((await one('select count(*)::int n from auth.users')).n,8); checks++;
+assert.equal((await one('select count(*)::int n from profiles')).n,8); checks++;
+console.log(`Database migrations and ${checks + bootstrapChecks} security/invariant assertions passed (PGlite PostgreSQL).`);
 await db.close();
 
