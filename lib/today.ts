@@ -1,8 +1,8 @@
 import { getGoalTarget, isGoalComplete, userDailyProgress, type GoalDefinition, type UserId } from "./goal-data";
-import { petProfile, petMoodMessages, type PetActivity } from "./pet-data";
-import type { PetMood } from "./mock-data";
+import { petMoodMessages, type DogMood } from "./pet-data";
+import type { CompanionSnapshot } from "./runtime-data";
 
-export function deriveToday(goals: GoalDefinition[], currentUserId: UserId, partnerUserId: UserId) {
+export function deriveToday(goals: GoalDefinition[], currentUserId: UserId, partnerUserId: UserId, companion: CompanionSnapshot) {
   const activeGoals = goals.filter((goal) => goal.status === "active");
   const sharedGoals = activeGoals.filter((goal) => goal.scope === "shared");
   const yourGoals = activeGoals.filter((goal) => goal.scope === "personal" && getGoalTarget(goal, currentUserId));
@@ -17,16 +17,7 @@ export function deriveToday(goals: GoalDefinition[], currentUserId: UserId, part
     const you = getGoalTarget(goal, currentUserId), friend = getGoalTarget(goal, partnerUserId);
     return you && friend && isGoalComplete(goal, you) !== isGoalComplete(goal, friend);
   });
-  const mood: PetMood = perfectDay ? "celebrating" : duoProgress >= 80 ? "excited" : waiting ? "waiting" : someProgress ? "happy" : "sleepy";
-  // XP remains a current-day demo projection until the durable ledger is migrated.
-  const completedXp = (items: GoalDefinition[]) => items.reduce((sum, goal) => sum + goal.targets.filter((target) => isGoalComplete(goal, target)).length * goal.xp, 0);
-  const xp = Math.max(0, petProfile.xp + completedXp(goals));
-  // Demo rule: 500 XP per level from the level-4 fixture; replace with the agreed reward schedule.
-  const level = petProfile.level + Math.floor(xp / petProfile.xpForNextLevel);
-  const levelXp = xp % petProfile.xpForNextLevel;
-  const pet = { ...petProfile, mood, level, xp: levelXp, xpGoal: petProfile.xpForNextLevel, duoEnergy: duoProgress, message: petMoodMessages[mood] };
-  const activities: PetActivity[] = targets.filter(({ goal, target }) => isGoalComplete(goal, target)).map(({ goal, target }) => ({
-    id: `${goal.id}-${target.userId}`, user: target.userId === currentUserId ? "You" : "Friend", action: `completed ${goal.name}`, xp: goal.xp, timestamp: "Today",
-  }));
-  return { activities, activeGoals, sharedGoals, yourGoals, youProgress, friendProgress, duoProgress, pairedGoals, perfectDay, pet };
+  const mood: DogMood = perfectDay ? "celebrating" : duoProgress >= 80 ? "excited" : waiting ? "waiting" : someProgress ? "happy" : "sleepy";
+  const pet = { name:"Brownie",mood,level:companion.level,xp:companion.levelXp,xpGoal:companion.xpForNextLevel,xpForNextLevel:companion.xpForNextLevel,duoEnergy:duoProgress,duoStreak:companion.currentStreak,equippedAccessory:companion.accessory,message:petMoodMessages[mood] };
+  return { activeGoals, sharedGoals, yourGoals, youProgress, friendProgress, duoProgress, pairedGoals, perfectDay, pet };
 }

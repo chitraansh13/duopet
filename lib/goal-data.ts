@@ -13,6 +13,7 @@ export interface GoalTarget {
   nextTarget?: number;
   nextTargetFrom?: string;
   currentValue: number;
+  hasCheckIn?: boolean;
 }
 
 export interface GoalDefinition {

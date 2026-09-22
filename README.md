@@ -2,7 +2,7 @@
 
 Next.js App Router app with Supabase authentication, pairing, and persisted daily goals. Read [AUDIT.md](AUDIT.md), [Backend Phase 1](docs/BACKEND_PHASE_1.md), and [Backend Phase 2](docs/BACKEND_PHASE_2.md) for architecture, permissions, and deferred work.
 
-Real: email/password authentication, profiles, duo creation/pairing, goal definitions and assignments, Today check-ins, target snapshots, pause/archive behavior, and realtime duo updates. Challenges, historical Progress charts, task mini-history, Brownie XP, accessories, and room interactions remain explicitly **demo-backed**.
+Real: email/password authentication, profiles, duo creation/pairing, goal definitions and assignments, Today check-ins, target snapshots, pause/archive behavior, realtime duo updates, Brownie XP, level calculation, and historical Progress summaries. Production never substitutes demo accomplishments when backend data is empty. Challenge creation, task mini-history, and pet customization persistence remain deferred.
 
 ## Set up a new Supabase project
 
@@ -20,6 +20,7 @@ Real: email/password authentication, profiles, duo creation/pairing, goal defini
    NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
+   DUOPET_DATA_MODE=production
    ```
 
    `.env.local` is ignored by Git. Public environment variables are bundled at build time: restart development/rebuild after changing them. Never put a secret or service-role key in a `NEXT_PUBLIC_` variable.
@@ -58,7 +59,9 @@ Real: email/password authentication, profiles, duo creation/pairing, goal defini
 
 8. In a different browser/profile, create and confirm Account B, set up its profile, choose **Join Duo**, and paste A's code. B sees “Your duo is complete 🐾”. A clicks **Check pairing** on `/onboarding` to see the completed pair. Use Profile → duo management to return there. Goal and Today check-in changes sync through narrowly scoped Supabase Realtime channels.
 
-9. Run checks:
+9. Keep `DUOPET_DATA_MODE=production` for authenticated use. Set it to `demo` only for an intentional local fixture preview; this switch is resolved once at the server data-source boundary.
+
+10. Run checks:
 
    ```sh
    npm test

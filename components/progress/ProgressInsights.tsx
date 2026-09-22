@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import type { DailyCompletion, HabitPerformanceData, ProgressPeriod } from "@/lib/progress-data";
 
 export function ProgressInsights({ habits, days, period, completedDelta }: { habits: HabitPerformanceData[]; days: DailyCompletion[]; period: ProgressPeriod; completedDelta: number }) {
+  if(!habits.length)return null;
   const sortedHabits = [...habits].sort((a, b) => b.rates[period].overall - a.rates[period].overall);
   const strongestDay = [...days].sort((a, b) => (b.you + b.friend) - (a.you + a.friend))[0];
   const insights = [

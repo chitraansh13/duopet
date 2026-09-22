@@ -3,7 +3,7 @@
 import { Heart, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BrowniePet, type DogMood } from "./BrowniePet";
-import type { PetMood } from "@/lib/mock-data";
+import type { DogMood as PetMood } from "@/lib/pet-data";
 
 import { useSession } from "./SessionProvider";
 

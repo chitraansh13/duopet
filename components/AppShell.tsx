@@ -1,5 +1,5 @@
 import { BottomNav } from "./BottomNav";
-import { APP_NAME } from "@/lib/mock-data";
+import { APP_NAME } from "@/lib/app-config";
 import Link from "next/link";
 
 export function AppShell({ children }: { children: React.ReactNode }) {

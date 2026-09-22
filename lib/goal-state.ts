@@ -1,6 +1,6 @@
 import type { GoalDefinition, GoalTarget, UserId } from "./goal-data";
 
-export type GoalRecord = Omit<GoalDefinition, "targets"> & { targets: Omit<GoalTarget, "currentValue">[] };
+export type GoalRecord = Omit<GoalDefinition, "targets"> & { targets: Omit<GoalTarget, "currentValue" | "hasCheckIn">[] };
 export interface GoalCheckIn { goalId: string; userId: UserId; date: string; value: number }
 export interface GoalState { definitions: GoalRecord[]; checkIns: GoalCheckIn[]; date: string }
 
@@ -9,6 +9,7 @@ export function selectGoals(state: GoalState): GoalDefinition[] {
   return state.definitions.map((goal) => ({ ...goal, targets: goal.targets.map((target) => ({
     ...target,
     currentValue: state.checkIns.find((entry) => entry.goalId === goal.id && entry.userId === target.userId && entry.date === state.date)?.value ?? 0,
+    hasCheckIn:state.checkIns.some((entry)=>entry.goalId===goal.id&&entry.userId===target.userId&&entry.date===state.date),
   })) }));
 }
 
@@ -16,7 +17,7 @@ export function saveGoal(state: GoalState, goal: GoalDefinition): GoalState {
   if (!goal.name.trim() || !goal.targets.length || new Set(goal.targets.map((target) => target.userId)).size !== goal.targets.length) return state;
   if (goal.trackingType === "measured" && (!goal.measurementKind || !goal.unit?.trim())) return state;
   if (goal.targets.some((target) => !Number.isFinite(target.currentValue) || target.currentValue < 0 || (goal.trackingType === "measured" && (!Number.isFinite(target.target) || (target.target ?? 0) <= 0)))) return state;
-  const definition: GoalRecord = { ...goal, targets: goal.targets.map(({ currentValue, ...target }) => target) };
+  const definition: GoalRecord = { ...goal, targets: goal.targets.map(({ currentValue,hasCheckIn:_, ...target }) => target) };
   const exists = state.definitions.some((item) => item.id === goal.id);
   return {
     ...state,

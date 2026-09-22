@@ -8,6 +8,7 @@ export function PetActivityFeed({ activities }: { activities: PetActivity[] }) {
     <section className="rounded-[24px] bg-surface p-5 shadow-card sm:p-6">
       <div><h2 className="text-lg font-bold">Today with Brownie</h2><p className="mt-1 text-sm text-muted">Every small win adds to Brownie’s day.</p></div>
       <ol className="mt-5">
+        {activities.length===0&&<li className="rounded-2xl bg-subtle px-4 py-5 text-center text-sm font-semibold text-muted">Brownie&apos;s waiting for your first win today.</li>}
         {activities.map((activity, index) => { const Icon = icons[activity.user]; return (
           <li key={activity.id} className="relative flex gap-3 pb-5 last:pb-0">
             {index < activities.length - 1 && <span className="absolute left-[17px] top-9 h-[calc(100%-1.75rem)] w-px bg-line" />}

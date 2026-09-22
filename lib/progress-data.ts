@@ -40,6 +40,17 @@ export interface HabitPerformanceData {
   rates: Record<ProgressPeriod, { overall: number; you: number; friend: number }>;
 }
 
+export interface ProgressDataset {
+  hasHistory: boolean;
+  summaries: Record<ProgressPeriod, ProgressSummaryData>;
+  streak: { current: number; best: number; recentDays: RecentStreakDay[] };
+  dailyCompletion: DailyCompletion[];
+  heatmap: HeatmapDay[];
+  habits: HabitPerformanceData[];
+  breakdown: Record<ProgressPeriod, { personal: number; shared: number }>;
+  completedDelta: number;
+}
+
 const heatmapScores: Array<[number, number]> = [
   [72, 58], [90, 82], [64, 76], [100, 94], [42, 61], [86, 80], [70, 52],
   [80, 65], [100, 86], [78, 72], [91, 91], [55, 67], [88, 76], [74, 70],
@@ -67,6 +78,7 @@ export const progressPeriods: Array<{ id: ProgressPeriod; label: string }> = [
 ];
 
 export const progressData = {
+  hasHistory: true,
   summaries: {
     week: { you: 84, friend: 78, together: 81, perfectDays: 2 },
     month: { you: 82, friend: 76, together: 79, perfectDays: 5 },
@@ -106,4 +118,4 @@ export const progressData = {
     quarter: { personal: 78, shared: 72 },
   } satisfies Record<ProgressPeriod, { personal: number; shared: number }>,
   completedDelta: 6,
-};
+} satisfies ProgressDataset;

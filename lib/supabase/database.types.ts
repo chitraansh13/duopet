@@ -676,6 +676,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_my_goal_target: {
+        Args: { p_effective_from: string; p_goal_id: string; p_target: number }
+        Returns: string
+      }
       update_goal: {
         Args: {
           p_goal_id: string

@@ -60,10 +60,11 @@ export async function profileSetupAction(_: FormState, form: FormData): Promise<
 export async function saveProfileAction(values: { displayName: string; nickname: string; initials: string }): Promise<FormState> {
   const user = await requireUser();
   if (typeof values?.displayName !== "string" || typeof values.nickname !== "string" || typeof values.initials !== "string" || !values.displayName.trim() || values.displayName.length>80 || values.nickname.length>80 || values.initials.length>6) return { error: "Please check your profile details." };
-  try { await updateProfile(user.id, { displayName: values.displayName.trim(), nickname: values.nickname.trim(), initials: values.initials.trim() }); }
+  let profile;
+  try { profile = await updateProfile(user.id, { displayName: values.displayName.trim(), nickname: values.nickname.trim(), initials: values.initials.trim() }); }
   catch { return { error: "Your profile couldn’t be saved. Please try again." }; }
   revalidatePath("/", "layout");
-  return {};
+  return { message: "Changes saved", profile };
 }
 export async function saveEncouragementAction(enabled: boolean): Promise<FormState> {
   const user = await requireUser();

@@ -10,10 +10,13 @@ import { ProgressInsights } from "./ProgressInsights";
 import { ProgressSummary } from "./ProgressSummary";
 import { StreakSummary } from "./StreakSummary";
 import { WeeklyComparison } from "./WeeklyComparison";
-import { progressData, type ProgressPeriod } from "@/lib/progress-data";
+import type { ProgressPeriod } from "@/lib/progress-data";
+import { useSession } from "@/components/SessionProvider";
 
 export function ProgressDashboard() {
   const [period, setPeriod] = useState<ProgressPeriod>("week");
+  const {runtime}=useSession();
+  const progressData=runtime.progress;
   const summary = progressData.summaries[period];
   const breakdown = progressData.breakdown[period];
 
@@ -24,6 +27,8 @@ export function ProgressDashboard() {
           <div><p className="text-sm font-medium text-muted">Your shared rhythm</p><h1 className="mt-1 text-[2rem] font-bold tracking-[-0.035em] sm:text-4xl">Progress</h1><p className="mt-2 text-sm text-muted">See how you two have been showing up.</p></div>
           <PeriodSelector value={period} onChange={setPeriod} />
         </header>
+
+        {!progressData.hasHistory&&<section className="rounded-[1.75rem] bg-surface p-7 text-center shadow-soft"><p className="text-lg font-bold">Your progress will appear here as you build your rhythm.</p><p className="mt-2 text-sm text-muted">Complete your first goal to start a real history with Brownie.</p></section>}
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="order-2 lg:order-1"><ProgressSummary summary={summary} currentStreak={progressData.streak.current} bestStreak={progressData.streak.best} perfectDays={summary.perfectDays} /></div>

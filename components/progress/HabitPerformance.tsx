@@ -11,6 +11,7 @@ export function HabitPerformance({ habits, period }: { habits: HabitPerformanceD
     <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .18 }}>
       <div className="mb-3"><p className="text-xs font-semibold text-muted">What&apos;s working</p><h2 className="mt-1 text-xl font-bold tracking-tight">Habit performance</h2></div>
       <div className="divide-y divide-line overflow-hidden rounded-[1.5rem] bg-surface shadow-soft">
+        {sorted.length===0&&<p className="p-8 text-center text-sm font-semibold text-muted">No history yet.</p>}
         {sorted.map((habit, index) => {
           const rate = habit.rates[period];
           return (

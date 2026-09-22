@@ -9,6 +9,7 @@ import { ChallengeProvider } from "@/components/challenges/ChallengeProvider";
 import { createClient } from "@/lib/supabase/server";
 import { duoDateKey } from "@/lib/date";
 import { ensureDefaultGoals, loadGoalState } from "@/lib/repositories/goals";
+import { getRuntimeSnapshot } from "@/lib/repositories/app-runtime";
 export const dynamic = "force-dynamic";
 export default async function ApplicationLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, duo } = await accountSetup();
@@ -18,6 +19,7 @@ export default async function ApplicationLayout({ children }: { children: React.
   }
   const client = await createClient();
   await ensureDefaultGoals(client);
-  const initialGoals = await loadGoalState(client, duo.id, duoDateKey(duo.timezone));
-  return <SessionProvider key={user.id} account={{ profile, duo }}><GoalProvider initialState={initialGoals}><ChallengeProvider>{children}</ChallengeProvider></GoalProvider></SessionProvider>;
+  const today = duoDateKey(duo.timezone);
+  const [initialGoals,runtime] = await Promise.all([loadGoalState(client,duo.id,today),getRuntimeSnapshot(client,duo,user.id,today)]);
+  return <SessionProvider key={user.id} account={{ profile, duo }} initialRuntime={runtime}><GoalProvider initialState={initialGoals}><ChallengeProvider initialChallenges={runtime.challenges}>{children}</ChallengeProvider></GoalProvider></SessionProvider>;
 }

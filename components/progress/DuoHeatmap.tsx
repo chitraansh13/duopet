@@ -56,7 +56,7 @@ export function DuoHeatmap({ days }: { days: HeatmapDay[] }) {
               <div><dt className="text-muted">Shared goals completed</dt><dd className="mt-0.5 font-bold">{selected.sharedGoalsCompleted} / 5</dd></div>
               <div><dt className="text-muted">Perfect Duo Day</dt><dd className="mt-0.5 font-bold">{selected.you === 100 && selected.friend === 100 ? "Yes" : "No"}</dd></div>
             </dl>
-            <p className="mt-3 border-t border-line pt-3 text-[11px] font-medium text-muted">Brownie was {selected.you >= 80 && selected.friend >= 80 ? "happy" : "quietly cheering you on"} that day.</p>
+            <p className="mt-3 border-t border-line pt-3 text-[11px] font-medium text-muted">{selected.you === 0 && selected.friend === 0 && selected.sharedGoalsCompleted === 0 ? "No activity recorded for this day." : "Completion reflects real check-ins for this duo day."}</p>
           </motion.div>
         )}
       </div>

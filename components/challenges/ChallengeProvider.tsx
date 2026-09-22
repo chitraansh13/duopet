@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { mockChallenges, type Challenge } from "@/lib/challenge-data";
+import type { Challenge } from "@/lib/challenge-data";
 
 interface ChallengeContextValue {
   challenges: Challenge[];
@@ -10,8 +10,8 @@ interface ChallengeContextValue {
 
 const ChallengeContext = createContext<ChallengeContextValue | null>(null);
 
-export function ChallengeProvider({ children }: { children: React.ReactNode }) {
-  const [challenges, setChallenges] = useState<Challenge[]>(mockChallenges);
+export function ChallengeProvider({ children, initialChallenges }: { children: React.ReactNode; initialChallenges: Challenge[] }) {
+  const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges);
   return <ChallengeContext.Provider value={{ challenges, addChallenge: (challenge) => setChallenges((current) => [challenge, ...current]) }}>{children}</ChallengeContext.Provider>;
 }
 

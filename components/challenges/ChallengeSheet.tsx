@@ -1,14 +1,11 @@
 "use client";
 import { useDialog } from "@/components/useDialog";
-import { currentUserId } from "@/lib/identity";
-
-
 import { addDays, localDateKey as dateInput } from "@/lib/date";
 import { AnimatePresence, motion } from "motion/react";
 import { Minus, Plus, Swords, UsersRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { GoalIcon } from "@/components/goals/GoalIcon";
-import { mockGoals } from "@/lib/goal-data";
+import { useGoals } from "@/components/goals/GoalProvider";
 import { rewardSuggestions, type Challenge, type ChallengeGoalType, type ChallengeMode } from "@/lib/challenge-data";
 
 const goalOptions: Array<{ id: ChallengeGoalType; label: string; detail: string; target: number }> = [
@@ -21,8 +18,9 @@ const durations = [3, 7, 14, 30, "custom"] as const;
 
 
 export function ChallengeSheet({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (challenge: Challenge) => void }) {
+  const {goals,currentUserId}=useGoals();
   const dialogRef = useDialog<HTMLDivElement>(onClose, open);
-  const eligibleGoals = mockGoals.filter((goal) => goal.scope === "shared" && goal.status === "active");
+  const eligibleGoals = goals.filter((goal) => goal.scope === "shared" && goal.status === "active");
   const [mode, setMode] = useState<ChallengeMode>("together");
   const [name, setName] = useState("");
   const [linkedGoalId, setLinkedGoalId] = useState("gym");

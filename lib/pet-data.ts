@@ -1,6 +1,5 @@
 export type DogMood = "happy" | "neutral" | "waiting" | "sleepy" | "excited" | "celebrating";
 export type DogAccessory = "none" | "basic-collar" | "lavender-collar" | "oxblood-bandana" | "bucket-hat" | "party-hat";
-import { progressData } from "./progress-data";
 
 export interface PetProfile {
   name: string;
@@ -54,7 +53,7 @@ export const petProfile: PetProfile = {
   xpForNextLevel: 500,
   mood: "happy",
   duoEnergy: 82,
-  duoStreak: progressData.streak.current,
+  duoStreak: 14,
   equippedAccessory: "basic-collar",
 };
 
@@ -72,7 +71,7 @@ export const petReactions = ["woof 🐾", "Brownie likes that.", "More pets, ple
 export const petAccessories: Accessory[] = [
   { id: "none", name: "Natural", type: "Collar", unlocked: true, unlockRequirement: "Unlocked" },
   { id: "basic-collar", name: "Basic Collar", type: "Collar", unlocked: true, unlockRequirement: "Unlocked" },
-  { id: "lavender-collar", name: "Lavender Collar", type: "Collar", unlocked: true, unlockRequirement: "Unlocked together" },
+  { id: "lavender-collar", name: "Lavender Collar", type: "Collar", unlocked: false, unlockRequirement: "Level 2", minLevel: 2 },
   { id: "oxblood-bandana", name: "Oxblood Bandana", type: "Bandana", unlocked: false, unlockRequirement: "Level 5", minLevel: 5 },
   { id: "bucket-hat", name: "Trail Hat", type: "Hat", unlocked: false, unlockRequirement: "Level 6", minLevel: 6 },
   { id: "party-hat", name: "Tiny Party Hat", type: "Hat", unlocked: false, unlockRequirement: "7 perfect duo days", perfectDays: 7 },
@@ -80,7 +79,7 @@ export const petAccessories: Accessory[] = [
 
 export const petRoomItems: RoomItem[] = [
   { id: "cozy-bed", name: "Cozy Bed", category: "Bed", unlocked: true, unlockRequirement: "Unlocked" },
-  { id: "tennis-ball", name: "Tennis Ball", category: "Toy", unlocked: true, unlockRequirement: "Unlocked" },
+  { id: "tennis-ball", name: "Tennis Ball", category: "Toy", unlocked: false, unlockRequirement: "Level 2", minLevel: 2 },
   { id: "little-plant", name: "Little Plant", category: "Plant", unlocked: false, unlockRequirement: "Level 6", minLevel: 6 },
   { id: "duo-frame", name: "Duo Photo Frame", category: "Frame", unlocked: false, unlockRequirement: "7 perfect duo days", perfectDays: 7 },
 ];

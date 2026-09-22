@@ -4,11 +4,11 @@ import { ArrowRight, Swords, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useChallenges } from "@/components/challenges/ChallengeProvider";
 import { challengeRemaining, deriveChallengeProgress } from "@/lib/challenge-data";
-import { mockGoals } from "@/lib/goal-data";
+import { useGoals } from "@/components/goals/GoalProvider";
 
 export function ActiveChallengePreview() {
   const { challenges } = useChallenges();
-  const goals = mockGoals;
+  const { goals }=useGoals();
   const active = challenges.filter((challenge) => challenge.status === "active" && goals.some((goal) => goal.id === challenge.linkedGoalId));
   const challenge = active.find((item) => item.featured) ?? active[0];
   const goal = challenge && goals.find((item) => item.id === challenge.linkedGoalId);

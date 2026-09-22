@@ -17,8 +17,8 @@ export function ManageGoals({ initialId }: { initialId?: string }) {
   const manageable = goals.filter((goal) => goal.scope === "shared" || getGoalTarget(goal, currentUserId));
   const editing = manageable.find((goal) => goal.id === editingId);
 
-  async function save(goal: GoalDefinition) {
-    const id = editing ? await updateGoal(goal) : await addGoal(goal);
+  async function save(goal: GoalDefinition,timing:"today"|"tomorrow") {
+    const id = editing ? await updateGoal(goal,timing) : await addGoal(goal);
     if (!id) return;
     setEditingId(id);
     setCreating(false);

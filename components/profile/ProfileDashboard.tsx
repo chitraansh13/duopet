@@ -7,23 +7,24 @@ import Link from "next/link";
 import { useState } from "react";
 import { BrowniePet } from "@/components/BrowniePet";
 import { ThemeControl } from "@/components/ThemeControl";
-import { type UserProfile } from "@/lib/profile-data";
-import { petAccessories } from "@/lib/pet-data";
+import { type UserProfile } from "@/lib/profile";
+import { isPetItemUnlocked,petAccessories } from "@/lib/pet-data";
 
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { useSession } from "@/components/SessionProvider";
 import { useGoals } from "@/components/goals/GoalProvider";
 import { useChallenges } from "@/components/challenges/ChallengeProvider";
 import { deriveToday } from "@/lib/today";
-import { mockGoals } from "@/lib/goal-data";
 
 export function ProfileDashboard() {
-  const { profile, setProfile, encouragement, setEncouragement, accessory: equippedAccessory, duo, saving, error } = useSession();
+  const { profile, setProfile, encouragement, setEncouragement, accessory: equippedAccessory, duo, saving, error,runtime } = useSession();
   const { goals, currentUserId, partnerUserId } = useGoals();
   const { challenges } = useChallenges();
-  const petProfile = { ...deriveToday(goals, currentUserId, partnerUserId).pet, name: duo.brownieName, equippedAccessory };
+  const equipped=petAccessories.find((item)=>item.id===equippedAccessory);
+  const safeAccessory=equipped&&isPetItemUnlocked(equipped,runtime.companion.level,runtime.companion.perfectDays)?equippedAccessory:"basic-collar";
+  const petProfile = { ...deriveToday(goals, currentUserId, partnerUserId,runtime.companion).pet, name: duo.brownieName, equippedAccessory:safeAccessory };
   const partner = duo.members.find((member) => member.userId !== profile.id);
-  const duoProfile = { pairedSince: new Date(duo.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: duo.timezone }), memberNames: [profile.displayName, partner?.displayName ?? "Waiting for your partner"], streak: petProfile.duoStreak, perfectDays: 5 };
+  const duoProfile = { pairedSince: new Date(duo.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: duo.timezone }), memberNames: [profile.displayName, partner?.displayName ?? "Waiting for your partner"], streak: runtime.companion.currentStreak, perfectDays: runtime.companion.perfectDays };
   const [editing, setEditing] = useState(false);
   const accessory = petAccessories.find((item) => item.id === petProfile.equippedAccessory)?.name ?? "None";
 
@@ -44,7 +45,7 @@ export function ProfileDashboard() {
 
           <SettingsSection eyebrow="Together" title="Your Duo" icon={UsersRound}>
             <div className="flex items-center gap-3 px-4 py-4"><div className="flex -space-x-2"><Avatar initials={profile.initials} small /><Avatar initials={partner?.initials || "?"} small friend /></div><div><p className="font-semibold">{duoProfile.memberNames.join(" + ")}</p><p className="text-xs text-muted">Brownie’s humans</p></div></div>
-            <div className="grid grid-cols-3 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /><Stat value={challenges.filter((challenge) => challenge.status === "active" && mockGoals.some((goal) => goal.id === challenge.linkedGoalId)).length} label="Challenges" /></div>
+            <div className="grid grid-cols-3 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /><Stat value={challenges.filter((challenge) => challenge.status === "active" && goals.some((goal) => goal.id === challenge.linkedGoalId)).length} label="Challenges" /></div>
             <div className="border-t border-line px-4 py-3"><p className="text-xs font-semibold">Duo management</p><p className="mt-1 text-xs leading-5 text-muted"><Link href="/onboarding" className="font-semibold text-accent">View your duo and invite</Link></p></div>
           </SettingsSection>
 
@@ -76,7 +77,7 @@ export function ProfileDashboard() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-2xl bg-surface p-4"><p className="text-xs text-muted">Goals and today’s check-ins are synced. Challenges, history, and pet XP remain demo-backed.</p><LogoutButton /></div>
+      <div className="flex items-center justify-between rounded-2xl bg-surface p-4"><p className="text-xs text-muted">Goals, targets, check-ins, and Brownie XP are synced for your duo.</p><LogoutButton /></div>
       {error && !editing && <p role="alert" className="text-sm text-accent">{error}</p>}
       <AnimatePresence>{editing && <EditProfile profile={profile} onClose={() => setEditing(false)} onSave={async (next) => { if (await setProfile(next)) setEditing(false); }} />}</AnimatePresence>
     </div></MotionConfig>

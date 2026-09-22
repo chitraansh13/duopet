@@ -3,6 +3,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import type { GoalDefinition, GoalStatus } from "@/lib/goal-data";
 import type { GoalState } from "@/lib/goal-state";
 import { canonicalValue, goalStateFromRows, type CheckInRow } from "./goal-adapters";
+import type { UserId } from "@/lib/goal-data";
 
 type Client = SupabaseClient<Database>;
 
@@ -60,11 +61,7 @@ function sameDefinition(a: GoalDefinition, b: GoalDefinition) {
 }
 
 export async function updateGoal(client: Client, original: GoalDefinition, next: GoalDefinition) {
-  if (!sameDefinition(original, next)) {
-    const { data, error } = await client.rpc("replace_goal_definition", { p_goal_id: original.id, ...args(next) });
-    if (error || !data) fail("This goal’s tracking setup couldn’t be changed. Please try again.");
-    return data;
-  }
+  if (!sameDefinition(original, next)) fail("A goal’s scope and tracking type can’t be changed after it starts. Create a new goal instead.");
   const { error } = await client.rpc("update_goal", {
     p_goal_id: original.id,
     p_name: next.name,
@@ -74,6 +71,13 @@ export async function updateGoal(client: Client, original: GoalDefinition, next:
   });
   if (error) fail("This goal couldn’t be updated. Please try again.");
   return original.id;
+}
+
+export async function updateOwnTarget(client:Client,goal:GoalDefinition,userId:UserId,target:number,effectiveFrom:string){
+  const canonical=canonicalValue(target,goal.measurementKind,goal.unit);
+  const {data,error}=await client.rpc("set_my_goal_target",{p_goal_id:goal.id,p_target:canonical,p_effective_from:effectiveFrom});
+  if(error||!data)fail("Your target couldn’t be updated. Please try again.");
+  return data;
 }
 
 export async function setGoalStatus(client: Client, goalId: string, status: GoalStatus | "archived") {
