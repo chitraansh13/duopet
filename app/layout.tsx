@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "DuoPet",
   description: "A shared habit tracker for two.",
-  icons: { icon: "/brownie-icon.svg", apple: "/brownie-icon.svg" },
+  icons: { icon: "/brownie-icon.svg", apple: "/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
