@@ -1,101 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccountDuo } from "@/lib/auth/domain";
 import type { Challenge, ChallengeGoalType, ChallengeMode } from "@/lib/challenge-data";
-import { addDays,duoDateKey } from "@/lib/date";
+import { addDays } from "@/lib/date";
 import type { GoalIconName } from "@/lib/goal-data";
 import type { DogAccessory, PetActivity } from "@/lib/pet-data";
-import type { ProgressDataset, ProgressPeriod } from "@/lib/progress-data";
 import { levelFromXp, type CompanionSnapshot, type RuntimeSnapshot } from "@/lib/runtime-data";
 import type { Database } from "@/lib/supabase/database.types";
+import { buildProgress } from "@/lib/progress-history";
 
 type Client = SupabaseClient<Database>;
 type GoalRow = Database["public"]["Tables"]["goals"]["Row"];
 type AssignmentRow = Database["public"]["Tables"]["goal_assignments"]["Row"];
 type CheckInRow = Database["public"]["Tables"]["goal_checkins"]["Row"];
 type XpRow = Database["public"]["Tables"]["pet_xp_events"]["Row"];
+type PetStats = Database["public"]["Functions"]["get_pet_stats"]["Returns"][number];
 
-const periods: Record<ProgressPeriod, number> = { week: 7, month: 30, quarter: 90 };
 const icons = new Set<GoalIconName>(["gym","study","brain","calories","protein","steps","tea","water","check","flame"]);
+function label(date:string,options:Intl.DateTimeFormatOptions){return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US",{...options,timeZone:"UTC"});}
 
-function label(date: string, options: Intl.DateTimeFormatOptions) {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { ...options, timeZone: "UTC" });
-}
-function percentage(done: number, total: number) { return total ? Math.round(done / total * 100) : 0; }
-function streaks(dates: string[], today: string) {
-  const sorted = [...new Set(dates)].sort();
-  let best = 0, run = 0, previous = "";
-  for (const date of sorted) {
-    run = previous && addDays(previous,1) === date ? run + 1 : 1;
-    best = Math.max(best,run); previous = date;
-  }
-  let current = 0;
-  for (let date = today; dates.includes(date); date = addDays(date,-1)) current++;
-  if (!current) for (let date = addDays(today,-1); dates.includes(date); date = addDays(date,-1)) current++;
-  return { current, best };
-}
-
-function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], checkIns: CheckInRow[], events: XpRow[], duo: AccountDuo, currentId: string, today: string): ProgressDataset {
-  const partnerId = duo.members.find((member) => member.userId !== currentId)?.userId;
-  const historyRows = checkIns.filter((row) => row.local_date < today && Number(row.value) > 0);
-  const hasHistory = historyRows.length > 0;
-  const byGoal = new Map(goals.map((goal) => [goal.id,goal]));
-  const completed = new Set(checkIns.filter((row) => row.completed).map((row) => `${row.local_date}:${row.goal_id}:${row.user_id}`));
-  const eligible = (date: string, userId?: string, scope?: string) => assignments.filter((assignment) => {
-    const goal = byGoal.get(assignment.goal_id);
-    return goal && (!userId || assignment.user_id === userId) && (!scope || goal.scope === scope)
-      && assignment.active_from <= date && (!assignment.active_until || date < assignment.active_until)
-      && duoDateKey(duo.timezone,new Date(goal.created_at)) <= date && (!goal.archived_at || date < duoDateKey(duo.timezone,new Date(goal.archived_at)));
-  });
-  const score = (date: string, userId: string | undefined, scope?: string) => {
-    if (!userId) return 0;
-    const rows = eligible(date,userId,scope);
-    return percentage(rows.filter((row) => completed.has(`${date}:${row.goal_id}:${row.user_id}`)).length,rows.length);
-  };
-  const day = (date: string) => {
-    const shared = goals.filter((goal) => goal.scope === "shared" && eligible(date,undefined,"shared").some((row) => row.goal_id === goal.id));
-    const sharedGoalsCompleted = shared.filter((goal) => {
-      const rows = eligible(date).filter((row) => row.goal_id === goal.id);
-      return rows.length >= 2 && rows.every((row) => completed.has(`${date}:${row.goal_id}:${row.user_id}`));
-    }).length;
-    return { date, label: label(date,{ month:"short",day:"numeric" }), you: score(date,currentId), friend: score(date,partnerId), sharedGoalsCompleted };
-  };
-  const heatmap = Array.from({ length: 42 },(_,index) => day(addDays(today,index-41)));
-  const dailyCompletion = heatmap.slice(-7).map((item) => ({ day: label(item.date,{ weekday:"long" }), label: label(item.date,{ weekday:"narrow" }), you:item.you, friend:item.friend }));
-  const perfectDates = events.filter((event) => event.source_type === "perfect_day" && !event.reversed_at).map((event) => event.local_date);
-  const streak = streaks(perfectDates,today);
-  const summaries = Object.fromEntries(Object.entries(periods).map(([period,count]) => {
-    const days = Array.from({ length: count },(_,index) => addDays(today,index-count+1));
-    const average = (userId?: string) => Math.round(days.reduce((sum,date) => sum + score(date,userId),0) / days.length);
-    const you = average(currentId), friend = average(partnerId);
-    return [period,{ you,friend,together:Math.round((you+friend)/2),perfectDays:perfectDates.filter((date) => date >= days[0] && date <= today).length }];
-  })) as ProgressDataset["summaries"];
-  const rate = (goalId: string, userId: string | undefined, count: number) => {
-    if (!userId) return 0;
-    const dates = Array.from({ length: count },(_,index) => addDays(today,index-count+1));
-    const possible = dates.filter((date) => eligible(date,userId).some((row) => row.goal_id === goalId));
-    return percentage(possible.filter((date) => completed.has(`${date}:${goalId}:${userId}`)).length,possible.length);
-  };
-  const habits = goals.filter((goal) => historyRows.some((row) => row.goal_id === goal.id)).map((goal) => ({
-    id:goal.id,name:goal.name,icon:icons.has(goal.icon_key as GoalIconName) ? goal.icon_key as GoalIconName : "check",
-    rates:Object.fromEntries(Object.entries(periods).map(([period,count]) => {
-      const you=rate(goal.id,currentId,count),friend=rate(goal.id,partnerId,count);
-      return [period,{ you,friend,overall:Math.round((you+friend)/2) }];
-    })) as Record<ProgressPeriod,{ overall:number;you:number;friend:number }>,
-  }));
-  const breakdown = Object.fromEntries(Object.entries(periods).map(([period,count]) => {
-    const dates=Array.from({length:count},(_,index)=>addDays(today,index-count+1));
-    const average=(scope:string)=>Math.round(dates.reduce((sum,date)=>sum+(score(date,currentId,scope)+score(date,partnerId,scope))/2,0)/dates.length);
-    return [period,{ personal:average("personal"),shared:average("shared") }];
-  })) as ProgressDataset["breakdown"];
-  return { hasHistory,summaries,streak:{...streak,recentDays:Array.from({length:14},(_,index)=>{const date=addDays(today,index-13);return {date,label:label(date,{weekday:"narrow"}),successful:perfectDates.includes(date),perfect:perfectDates.includes(date),today:date===today};})},dailyCompletion,heatmap,habits,breakdown,completedDelta:0 };
-}
-
-function buildCompanion(events: XpRow[], goals: GoalRow[], pet: { equipped_accessory_id:string|null } | null, roomItems:string[], unlocks:string[], currentUserId:string, today:string, timezone:string): CompanionSnapshot {
+function buildCompanion(events: XpRow[], goals: GoalRow[], pet: { equipped_accessory_id:string|null } | null, roomItems:string[], unlocks:string[], stats:PetStats,currentUserId:string, today:string, timezone:string): CompanionSnapshot {
   const active = events.filter((event) => !event.reversed_at);
-  const totalXp = active.reduce((sum,event) => sum + event.xp_amount,0);
+  const totalXp = Number(stats.total_xp);
   const { level,levelXp } = levelFromXp(totalXp);
-  const perfectDates = active.filter((event)=>event.source_type==="perfect_day").map((event)=>event.local_date);
-  const streak=streaks(perfectDates,today);
   const names=new Map(goals.map((goal)=>[goal.id,goal.name]));
   const activities:PetActivity[]=active.filter((event)=>event.local_date===today).sort((a,b)=>b.created_at.localeCompare(a.created_at)).map((event)=>({
     id:event.id,user:event.actor_user_id ? event.actor_user_id===currentUserId ? "You" : "Friend" : "Duo",
@@ -103,28 +29,59 @@ function buildCompanion(events: XpRow[], goals: GoalRow[], pet: { equipped_acces
     xp:event.xp_amount,timestamp:new Intl.DateTimeFormat("en-US",{timeZone:timezone,hour:"numeric",minute:"2-digit"}).format(new Date(event.created_at)),
   }));
   const accessory=(pet?.equipped_accessory_id ?? "basic-collar") as DogAccessory;
-  return { totalXp,level,levelXp,xpForNextLevel:500,currentStreak:streak.current,bestStreak:streak.best,perfectDays:new Set(perfectDates).size,accessory,roomItems:roomItems.length?roomItems:["cozy-bed"],unlockedItems:unlocks,activities };
+  return { totalXp,level,levelXp,xpForNextLevel:500,currentStreak:stats.current_streak,bestStreak:stats.best_streak,perfectDays:Number(stats.perfect_days),accessory,roomItems,unlockedItems:unlocks,activities };
 }
 
-function challenge(row: Database["public"]["Tables"]["challenges"]["Row"]): Challenge {
+async function loadRecentCheckIns(client:Client,today:string):Promise<CheckInRow[]>{
+  const rows:CheckInRow[]=[];
+  for(let offset=0;offset<10000;offset+=1000){
+    const {data,error}=await client.from("goal_checkins").select("*")
+      .gte("local_date",addDays(today,-89)).lte("local_date",today)
+      .order("local_date").order("id").range(offset,offset+999);
+    if(error)throw error;
+    rows.push(...(data??[]));
+    if((data??[]).length<1000)return rows;
+  }
+  throw new Error("Recent history exceeds the supported query window.");
+}
+
+function challenge(row: Database["public"]["Tables"]["challenges"]["Row"],scores: Array<{user_id:string;score:number;shared_score:number}>,result:Database["public"]["Tables"]["challenge_results"]["Row"]|undefined,currentUserId:string,today:string,checkIns:CheckInRow[],goal?:GoalRow): Challenge {
   const mode:ChallengeMode=row.mode==="head_to_head"?"headToHead":"together";
   const goalType:ChallengeGoalType=row.metric==="target_days"?"targetDays":row.metric==="streak"?"streak":"completionCount";
-  return { id:row.id,name:row.name,mode,linkedGoalId:row.linked_goal_id,goalType,target:row.target,startDate:row.start_date,endDate:row.end_date,reward:row.reward??undefined,status:row.status==="completed"?"completed":"active",createdBy:row.created_by,historyThrough:addDays(row.start_date,-1),historicalProgress:{you:0,friend:0,shared:0},activities:[] };
+  const you=scores.find((item)=>item.user_id===currentUserId)?.score??0;
+  const friend=scores.find((item)=>item.user_id!==currentUserId)?.score??0;
+  const shared=scores[0]?.shared_score??0;
+  const resultText=result?.outcome==="together_completed"?"Challenge complete 🎉":result?.outcome==="together_missed"?"Challenge finished":result?.outcome==="tie"?"It's a tie":result?.winner_user_id===currentUserId?"You won this one 🏆":result?.winner_user_id?"Friend takes this one":undefined;
+  const activities=checkIns.filter((checkin)=>checkin.goal_id===row.linked_goal_id&&checkin.completed&&checkin.local_date>=row.start_date&&checkin.local_date<=row.end_date&&checkin.local_date<today)
+    .sort((a,b)=>b.local_date.localeCompare(a.local_date)||b.updated_at.localeCompare(a.updated_at)).slice(0,6)
+    .map((checkin)=>({id:checkin.id,dateLabel:label(checkin.local_date,{month:"short",day:"numeric"}),user:checkin.user_id===currentUserId?"You" as const:"Friend" as const,action:`completed ${goal?.name??"the linked goal"}`}));
+  return { id:row.id,name:row.name,mode,linkedGoalId:row.linked_goal_id,linkedGoalName:goal?.name,linkedGoalIcon:icons.has(goal?.icon_key as GoalIconName)?goal?.icon_key as GoalIconName:"check",goalType,target:row.target,startDate:row.start_date,endDate:row.end_date,reward:row.reward??undefined,status:row.status==="completed"?"completed":"active",createdBy:row.created_by,historyThrough:row.end_date,historicalProgress:{you,friend,shared},activities,authoritative:true,result:resultText,outcome:result?.outcome as Challenge["outcome"]|undefined,detail:result?`${you}–${friend} · final result`:undefined };
 }
 
 export async function loadRuntimeSnapshot(client:Client,duo:AccountDuo,currentUserId:string,today:string):Promise<RuntimeSnapshot>{
-  const [goalsResult,assignmentsResult,checkInsResult,xpResult,petResult,roomResult,unlockResult,challengeResult]=await Promise.all([
+  const finalization=await client.rpc("finalize_due_challenges");
+  if(finalization.error)throw finalization.error;
+  const [goalsResult,assignmentsResult,checkIns,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult]=await Promise.all([
     client.from("goals").select("*").eq("duo_id",duo.id),
     client.from("goal_assignments").select("*"),
-    client.from("goal_checkins").select("*").gte("local_date",addDays(today,-89)).lte("local_date",today),
-    client.from("pet_xp_events").select("*").eq("duo_id",duo.id),
+    loadRecentCheckIns(client,today),
+    client.from("pet_xp_events").select("*").eq("duo_id",duo.id).eq("source_type","perfect_day").gte("local_date",addDays(today,-89)),
+    client.from("pet_xp_events").select("*").eq("duo_id",duo.id).eq("local_date",today),
     client.from("duo_pets").select("equipped_accessory_id").eq("duo_id",duo.id).maybeSingle(),
     client.from("pet_room_items").select("item_id").eq("duo_id",duo.id),
-    client.from("pet_unlocks").select("item_id").eq("duo_id",duo.id),
+    client.from("pet_unlocks").select("item_id,unlock_origin").eq("duo_id",duo.id),
     client.from("challenges").select("*").eq("duo_id",duo.id),
+    client.rpc("get_challenge_scores",{p_duo_id:duo.id}),
+    client.from("goal_status_events").select("*"),
+    client.rpc("get_pet_stats",{p_duo_id:duo.id}),
   ]);
-  const error=[goalsResult,assignmentsResult,checkInsResult,xpResult,petResult,roomResult,unlockResult,challengeResult].find((result)=>result.error)?.error;
+  const error=[goalsResult,assignmentsResult,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult].find((result)=>result.error)?.error;
   if(error) throw error;
-  const goals=goalsResult.data??[],events=xpResult.data??[],assignments=assignmentsResult.data??[],checkIns=checkInsResult.data??[];
-  return { isDemoMode:false,companion:buildCompanion(events,goals,petResult.data,(roomResult.data??[]).map((row)=>row.item_id),(unlockResult.data??[]).map((row)=>row.item_id),currentUserId,today,duo.timezone),progress:buildProgress(goals,assignments,checkIns,events,duo,currentUserId,today),challenges:(challengeResult.data??[]).filter((row)=>row.status!=="cancelled").map(challenge) };
+  const stats=petStatsResult.data?.[0];
+  if(!stats)throw new Error("Brownie’s stats couldn’t be loaded.");
+  const challengeIds=(challengeResult.data??[]).map((item)=>item.id);
+  const results=challengeIds.length?await client.from("challenge_results").select("*").in("challenge_id",challengeIds):{data:[],error:null};
+  if(results.error)throw results.error;
+  const goals=goalsResult.data??[],events=[...new Map([...(perfectResult.data??[]),...(activityResult.data??[])].map((event)=>[event.id,event])).values()],assignments=assignmentsResult.data??[];
+  return { isDemoMode:false,companion:buildCompanion(events,goals,petResult.data,(roomResult.data??[]).map((row)=>row.item_id),(unlockResult.data??[]).filter((row)=>row.unlock_origin!=="legacy").map((row)=>row.item_id),stats,currentUserId,today,duo.timezone),progress:buildProgress(goals,assignments,checkIns,events,statusResult.data??[],stats,duo,currentUserId,today),challenges:(challengeResult.data??[]).filter((row)=>row.status!=="cancelled").map((row)=>challenge(row,(scoresResult.data??[]).filter((score)=>score.challenge_id===row.id),results.data?.find((result)=>result.challenge_id===row.id),currentUserId,today,checkIns,goals.find((goal)=>goal.id===row.linked_goal_id))) };
 }

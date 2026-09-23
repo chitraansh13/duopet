@@ -44,7 +44,7 @@ export function ProgressDashboard() {
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,.6fr)]">
           <HabitPerformance habits={progressData.habits} period={period} />
-          <ProgressInsights habits={progressData.habits} days={progressData.dailyCompletion} period={period} completedDelta={progressData.completedDelta} />
+          <ProgressInsights habits={progressData.habits} days={progressData.dailyCompletion} period={period} completedDelta={progressData.completedDelta} ready={Boolean(progressData.insightsReady)} />
         </div>
       </div>
     </MotionConfig>

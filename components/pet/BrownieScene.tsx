@@ -16,6 +16,8 @@ interface BrownieSceneProps {
 export function BrownieScene({ mood, accessory, reacting, reaction, reactionKey, activeRoomItems, onPet }: BrownieSceneProps) {
   const hasBed = activeRoomItems.includes("cozy-bed");
   const hasBall = activeRoomItems.includes("tennis-ball");
+  const hasPlant = activeRoomItems.includes("little-plant");
+  const hasFrame = activeRoomItems.includes("duo-frame");
 
   return (
     <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative isolate min-h-[470px] overflow-hidden rounded-[28px] bg-[var(--room-wall)] shadow-card sm:min-h-[540px] lg:min-h-[620px]" aria-label="Brownie's room">
@@ -49,6 +51,16 @@ export function BrownieScene({ mood, accessory, reacting, reaction, reactionKey,
           <motion.div key="ball" initial={{ opacity: 0, scale: .5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .5 }} className="absolute bottom-12 right-9 size-10 rounded-full bg-luxury shadow-soft sm:bottom-16 sm:right-16 sm:size-12" aria-hidden="true">
             <span className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 rotate-45 bg-surface/45" />
           </motion.div>
+        )}
+        {hasPlant && (
+          <motion.div key="plant" initial={{ opacity: 0, scale: .85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .85 }} className="absolute bottom-[24%] right-7 h-20 w-16 sm:right-12" aria-hidden="true">
+            <span className="absolute bottom-0 left-3 h-8 w-10 rounded-b-xl bg-luxury shadow-soft" />
+            <span className="absolute bottom-7 left-2 h-9 w-5 -rotate-30 rounded-full bg-accent/70" />
+            <span className="absolute bottom-9 right-1 h-9 w-5 rotate-30 rounded-full bg-accent/65" />
+          </motion.div>
+        )}
+        {hasFrame && (
+          <motion.div key="frame" initial={{ opacity: 0, scale: .9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .9 }} className="absolute left-8 top-20 grid h-16 w-16 place-items-center rounded-xl border-[6px] border-luxury bg-accent-soft text-xl text-accent shadow-soft sm:left-12 sm:top-24" aria-hidden="true">♥</motion.div>
         )}
       </AnimatePresence>
 

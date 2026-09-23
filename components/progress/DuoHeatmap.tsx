@@ -9,8 +9,8 @@ function intensity(score: number, token: string) {
 }
 
 export function DuoHeatmap({ days }: { days: HeatmapDay[] }) {
-  const [selectedDate, setSelected] = useState(days.at(-1)?.date);
-  const selected = days.find((day) => day.date === selectedDate) ?? days.at(-1);
+  const [selectedDate, setSelected] = useState(days.findLast((day)=>!day.future)?.date);
+  const selected = days.find((day) => day.date === selectedDate) ?? days.findLast((day)=>!day.future);
   const weeks = Array.from({ length: Math.ceil(days.length / 7) }, (_, index) => days.slice(index * 7, index * 7 + 7));
   const weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -32,10 +32,10 @@ export function DuoHeatmap({ days }: { days: HeatmapDay[] }) {
             <div key={week[0]?.date} className="grid grid-cols-[42px_repeat(7,36px)] items-center gap-1 sm:grid-cols-[48px_repeat(7,40px)] sm:gap-1.5">
               <p className="text-[9px] font-bold text-muted">{week[0]?.label}</p>
               {week.map((day) => {
-                const perfectDuo = day.you === 100 && day.friend === 100;
+                const perfectDuo = day.perfect ?? (day.applicable!==false && day.you === 100 && day.friend === 100);
                 const isSelected = selected?.date === day.date;
                 return (
-                  <button key={day.date} type="button" onClick={() => setSelected(day.date)} onFocus={() => setSelected(day.date)} aria-pressed={isSelected} aria-label={`${day.label}: You ${day.you}%, Friend ${day.friend}%, ${day.sharedGoalsCompleted} of 5 shared goals${perfectDuo ? ", perfect duo day" : ""}`} className={`relative size-9 overflow-hidden rounded-[9px] outline-none transition-transform active:scale-95 sm:size-10 ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : perfectDuo ? "ring-1 ring-luxury" : ""} focus-visible:ring-2 focus-visible:ring-accent`} title={`${day.label} · You ${day.you}% · Friend ${day.friend}%`}>
+                  <button key={day.date} type="button" disabled={day.future} onClick={() => setSelected(day.date)} onFocus={() => setSelected(day.date)} aria-pressed={isSelected} aria-label={day.future?`${day.label}: future day`:`${day.label}: You ${day.you}%, Friend ${day.friend}%, ${day.sharedGoalsCompleted} of ${day.sharedGoalsTotal??0} shared goals${perfectDuo ? ", perfect duo day" : ""}`} className={`relative size-9 overflow-hidden rounded-[9px] outline-none transition-transform active:scale-95 disabled:opacity-35 sm:size-10 ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : perfectDuo ? "ring-1 ring-luxury" : ""} focus-visible:ring-2 focus-visible:ring-accent`} title={day.future?"Future day":`${day.label} · You ${day.you}% · Friend ${day.friend}%`}>
                     <span className="block h-1/2" style={{ backgroundColor: intensity(day.you, "var(--accent)") }} />
                     <span className="block h-1/2" style={{ backgroundColor: intensity(day.friend, "var(--friend)") }} />
                     {perfectDuo && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-luxury" />}
@@ -53,8 +53,8 @@ export function DuoHeatmap({ days }: { days: HeatmapDay[] }) {
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
               <div><dt className="text-muted">You</dt><dd className="mt-0.5 text-lg font-bold text-accent">{selected.you}%</dd></div>
               <div><dt className="text-muted">Friend</dt><dd className="mt-0.5 text-lg font-bold text-friend">{selected.friend}%</dd></div>
-              <div><dt className="text-muted">Shared goals completed</dt><dd className="mt-0.5 font-bold">{selected.sharedGoalsCompleted} / 5</dd></div>
-              <div><dt className="text-muted">Perfect Duo Day</dt><dd className="mt-0.5 font-bold">{selected.you === 100 && selected.friend === 100 ? "Yes" : "No"}</dd></div>
+              <div><dt className="text-muted">Shared goals completed</dt><dd className="mt-0.5 font-bold">{selected.sharedGoalsCompleted} / {selected.sharedGoalsTotal??0}</dd></div>
+              <div><dt className="text-muted">Perfect Duo Day</dt><dd className="mt-0.5 font-bold">{(selected.perfect ?? (selected.applicable!==false && selected.you === 100 && selected.friend === 100)) ? "Yes" : "No"}</dd></div>
             </dl>
             <p className="mt-3 border-t border-line pt-3 text-[11px] font-medium text-muted">{selected.you === 0 && selected.friend === 0 && selected.sharedGoalsCompleted === 0 ? "No activity recorded for this day." : "Completion reflects real check-ins for this duo day."}</p>
           </motion.div>

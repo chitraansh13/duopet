@@ -49,12 +49,12 @@ export function GoalProvider({ children, initialState }: { children: React.React
   useEffect(() => {
     const refreshDay = () => {
       const date = duoDateKey(duo.timezone);
-      if (state.date !== date) void refresh(date);
+      if (state.date !== date) { void refresh(date); void refreshRuntime(); }
     };
     const timer = window.setInterval(refreshDay, 60_000);
     document.addEventListener("visibilitychange", refreshDay);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshDay); };
-  }, [duo.timezone, refresh, state.date]);
+  }, [duo.timezone, refresh, refreshRuntime, state.date]);
 
   useEffect(() => {
     const relevantUsers = new Set([profile.id, partnerUserId]);

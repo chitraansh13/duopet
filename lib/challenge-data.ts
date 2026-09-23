@@ -19,6 +19,8 @@ export interface Challenge {
   name: string;
   mode: ChallengeMode;
   linkedGoalId: string;
+  linkedGoalName?: string;
+  linkedGoalIcon?: GoalDefinition["icon"];
   goalType: ChallengeGoalType;
   target: number;
   startDate: string;
@@ -31,7 +33,10 @@ export interface Challenge {
   activities: ChallengeActivity[];
   featured?: boolean;
   result?: string;
+  outcome?: "together_completed"|"together_missed"|"winner"|"tie";
   detail?: string;
+  /** Authoritative scores include every completed check-in through today. */
+  authoritative?: boolean;
 }
 
 export interface ChallengeProgress {
@@ -45,6 +50,7 @@ export function challengeIncludesToday(challenge: Challenge, today = localDateKe
 }
 
 export function deriveChallengeProgress(challenge: Challenge, goal?: GoalDefinition, today = localDateKey()): ChallengeProgress {
+  if (challenge.authoritative) return { ...challenge.historicalProgress };
   // historicalProgress excludes today; streak values represent consecutive days through yesterday.
   if (!challengeIncludesToday(challenge, today) || challenge.historyThrough >= today || !goal || goal.status !== "active") return { ...challenge.historicalProgress };
   const todayYou = goal && getGoalTarget(goal, currentUserId);

@@ -23,6 +23,10 @@ export interface HeatmapDay {
   you: number;
   friend: number;
   sharedGoalsCompleted: number;
+  sharedGoalsTotal?: number;
+  applicable?: boolean;
+  future?: boolean;
+  perfect?: boolean;
 }
 
 export interface RecentStreakDay {
@@ -49,6 +53,7 @@ export interface ProgressDataset {
   habits: HabitPerformanceData[];
   breakdown: Record<ProgressPeriod, { personal: number; shared: number }>;
   completedDelta: number;
+  insightsReady?: boolean;
 }
 
 const heatmapScores: Array<[number, number]> = [
@@ -79,6 +84,7 @@ export const progressPeriods: Array<{ id: ProgressPeriod; label: string }> = [
 
 export const progressData = {
   hasHistory: true,
+  insightsReady: true,
   summaries: {
     week: { you: 84, friend: 78, together: 81, perfectDays: 2 },
     month: { you: 82, friend: 76, together: 79, perfectDays: 5 },

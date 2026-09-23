@@ -1,12 +1,14 @@
 "use client";
 import { useDialog } from "@/components/useDialog";
-import { addDays, localDateKey as dateInput } from "@/lib/date";
+import { addDays, duoDateKey } from "@/lib/date";
 import { AnimatePresence, motion } from "motion/react";
 import { Minus, Plus, Swords, UsersRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { GoalIcon } from "@/components/goals/GoalIcon";
 import { useGoals } from "@/components/goals/GoalProvider";
-import { rewardSuggestions, type Challenge, type ChallengeGoalType, type ChallengeMode } from "@/lib/challenge-data";
+import { useSession } from "@/components/SessionProvider";
+import { rewardSuggestions, type ChallengeGoalType, type ChallengeMode } from "@/lib/challenge-data";
+import type { ChallengeDraft } from "@/lib/repositories/challenges";
 
 const goalOptions: Array<{ id: ChallengeGoalType; label: string; detail: string; target: number }> = [
   { id: "completionCount", label: "Completion count", detail: "Add completed goal days", target: 10 },
@@ -17,8 +19,10 @@ const durations = [3, 7, 14, 30, "custom"] as const;
 
 
 
-export function ChallengeSheet({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (challenge: Challenge) => void }) {
-  const {goals,currentUserId}=useGoals();
+export function ChallengeSheet({ open, onClose, onCreate, saving, error }: { open: boolean; onClose: () => void; onCreate: (challenge: ChallengeDraft) => Promise<boolean>; saving:boolean; error?:string }) {
+  const {goals}=useGoals();
+  const {duo}=useSession();
+  const today=duoDateKey(duo.timezone);
   const dialogRef = useDialog<HTMLDivElement>(onClose, open);
   const eligibleGoals = goals.filter((goal) => goal.scope === "shared" && goal.status === "active");
   const [mode, setMode] = useState<ChallengeMode>("together");
@@ -27,9 +31,10 @@ export function ChallengeSheet({ open, onClose, onCreate }: { open: boolean; onC
   const [goalType, setGoalType] = useState<ChallengeGoalType>("completionCount");
   const [target, setTarget] = useState(10);
   const [duration, setDuration] = useState<(typeof durations)[number]>(7);
-  const [startDate, setStartDate] = useState(dateInput(new Date()));
+  const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState("");
   const [reward, setReward] = useState("");
+  const [formError,setFormError]=useState<string>();
 
   useEffect(() => {
     if (eligibleGoals.length && !eligibleGoals.some((goal) => goal.id === linkedGoalId)) setLinkedGoalId(eligibleGoals[0].id);
@@ -40,19 +45,18 @@ export function ChallengeSheet({ open, onClose, onCreate }: { open: boolean; onC
     setTarget(option.target);
   }
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!name.trim() || !eligibleGoals.some((goal) => goal.id === linkedGoalId)) return;
-    const start = duration === "custom" ? new Date(`${startDate}T12:00:00`) : new Date();
-    const end = duration === "custom" ? new Date(`${endDate}T12:00:00`) : new Date(start);
-    if (duration !== "custom") end.setDate(end.getDate() + duration - 1);
-    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end < start) return;
-    onCreate({
-      id: `challenge-${Date.now()}`,
-      name: name.trim(), mode, linkedGoalId, goalType, target,
-      startDate: dateInput(start), endDate: dateInput(end), reward: reward.trim() || undefined,
-      status: "active", createdBy: currentUserId, historyThrough: addDays(dateInput(start), -1), historicalProgress: { you: 0, friend: 0, shared: 0 }, activities: [],
-    });
+    if (saving||!name.trim() || !eligibleGoals.some((goal) => goal.id === linkedGoalId)) return;
+    setFormError(undefined);
+    const start=duration==="custom"?startDate:today;
+    const end=duration==="custom"?endDate:addDays(start,duration-1);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start)||!/^\d{4}-\d{2}-\d{2}$/.test(end)||start<today||end<start){setFormError("Choose valid duo dates starting today or later.");return;}
+    const days=Math.round((Date.parse(`${end}T00:00:00Z`)-Date.parse(`${start}T00:00:00Z`))/86400000)+1;
+    const maximum=days*(mode==="together"&&goalType==="completionCount"?2:1);
+    if(!Number.isFinite(days)||days<1||days>90||target>maximum){setFormError("Choose a target the duo can reach within 90 days.");return;}
+    const success=await onCreate({name:name.trim(),mode,linkedGoalId,goalType,target,startDate:start,endDate:end,reward:reward.trim()||undefined});
+    if(!success)return;
     setName("");
     setReward("");
     onClose();
@@ -74,6 +78,7 @@ export function ChallengeSheet({ open, onClose, onCreate }: { open: boolean; onC
     <fieldset className="mt-5"><legend className="text-xs font-bold text-muted">6 · Duration</legend><div className="mt-2 flex flex-wrap gap-2">{durations.map((value) => <button key={value} type="button" onClick={() => setDuration(value)} aria-pressed={duration === value} className={`min-h-11 rounded-full px-4 text-xs font-semibold ${duration === value ? "bg-ink text-surface" : "bg-surface text-muted shadow-soft"}`}>{value === "custom" ? "Custom" : `${value} days`}</button>)}</div>{duration === "custom" && <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-xs font-semibold text-muted">Starts<input required type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-line bg-surface px-3 text-ink" /></label><label className="text-xs font-semibold text-muted">Ends<input required type="date" value={endDate} min={startDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-line bg-surface px-3 text-ink" /></label></div>}</fieldset>
 
     <label className="mt-5 block text-xs font-bold text-muted">7 · Reward or stakes <span className="font-normal">(optional)</span><input value={reward} onChange={(event) => setReward(event.target.value)} placeholder="Movie night" className="mt-2 min-h-12 w-full rounded-[15px] border border-line bg-surface px-4 text-sm text-ink shadow-soft outline-none focus:ring-2 focus:ring-accent/35" /></label><div className="mt-2 flex flex-wrap gap-2">{rewardSuggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => setReward(suggestion)} className="rounded-full bg-surface px-3 py-2 text-[11px] font-semibold text-muted shadow-soft">{suggestion}</button>)}</div>
-    <button type="submit" disabled={!name.trim() || !eligibleGoals.some((goal) => goal.id === linkedGoalId)} className="mt-6 min-h-12 w-full rounded-[16px] bg-accent px-5 text-sm font-bold text-on-accent shadow-soft disabled:opacity-45">Create challenge</button>
+    {(formError||error)&&<p role="alert" className="mt-4 text-sm font-semibold text-accent">{formError||error}</p>}
+    <button type="submit" disabled={saving||!name.trim() || !eligibleGoals.some((goal) => goal.id === linkedGoalId)} className="mt-6 min-h-12 w-full rounded-[16px] bg-accent px-5 text-sm font-bold text-on-accent shadow-soft disabled:opacity-45">{saving?"Creating...":"Create challenge"}</button>
   </form></motion.div></motion.div>}</AnimatePresence>;
 }

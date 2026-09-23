@@ -26,6 +26,7 @@ truncate table
   public.challenge_results,
   public.pet_xp_events,
   public.goal_checkins,
+  public.goal_status_events,
   public.challenges,
   public.goal_assignments,
   public.goals,
@@ -43,6 +44,7 @@ begin
     union all select 1 from public.challenge_results
     union all select 1 from public.pet_xp_events
     union all select 1 from public.goal_checkins
+    union all select 1 from public.goal_status_events
     union all select 1 from public.challenges
     union all select 1 from public.goal_assignments
     union all select 1 from public.goals

@@ -13,7 +13,7 @@ import { useGoals } from "@/components/goals/GoalProvider";
 import { deriveToday } from "@/lib/today";
 
 export function PetDashboard() {
-  const { accessory, setAccessory, activeRoomItems, setActiveRoomItems, encouragement, duo,runtime } = useSession();
+  const { accessory, setAccessory, activeRoomItems, toggleRoomItem, encouragement, duo,runtime,error,saving } = useSession();
   const { goals, currentUserId, partnerUserId } = useGoals();
   const { pet } = deriveToday(goals, currentUserId, partnerUserId,runtime.companion);
   const activities=runtime.companion.activities;
@@ -33,12 +33,9 @@ export function PetDashboard() {
     reactionTimer.current = setTimeout(() => { setReacting(false); }, 950);
   }
 
-  function toggleRoomItem(id: string) {
-    setActiveRoomItems((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
-  }
-
-  const accessories = petAccessories.map((item) => ({ ...item, unlocked: isPetItemUnlocked(item, pet.level, runtime.companion.perfectDays) }));
-  const roomItems = petRoomItems.map((item) => ({ ...item, unlocked: isPetItemUnlocked(item, pet.level, runtime.companion.perfectDays) }));
+  const unlocked=(item:typeof petAccessories[number]|typeof petRoomItems[number])=>runtime.isDemoMode?isPetItemUnlocked(item,pet.level,runtime.companion.perfectDays):runtime.companion.unlockedItems.includes(item.id);
+  const accessories = petAccessories.map((item) => ({ ...item, unlocked: unlocked(item) }));
+  const roomItems = petRoomItems.map((item) => ({ ...item, unlocked: unlocked(item) }));
   const safeAccessory=accessories.find((item)=>item.id===accessory)?.unlocked?accessory:"basic-collar";
   const safeRoomItems=activeRoomItems.filter((id)=>roomItems.find((item)=>item.id===id)?.unlocked);
   const mood = reacting ? "excited" : pet.mood;
@@ -68,9 +65,10 @@ export function PetDashboard() {
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-2">
-          <AccessoryPicker items={accessories} selected={safeAccessory} onSelect={setAccessory} />
-          <RoomItemPicker items={roomItems} activeItems={safeRoomItems} onToggle={toggleRoomItem} />
+          <AccessoryPicker items={accessories} selected={safeAccessory} onSelect={setAccessory} disabled={saving} />
+          <RoomItemPicker items={roomItems} activeItems={safeRoomItems} onToggle={toggleRoomItem} disabled={saving} />
         </div>
+        {error&&<p role="alert" className="rounded-2xl bg-surface p-4 text-sm font-semibold text-accent shadow-soft">{error}</p>}
 
         <PetActivityFeed activities={activities} />
       </div>

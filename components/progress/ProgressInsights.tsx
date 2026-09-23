@@ -4,15 +4,15 @@ import { ArrowUpRight, Lightbulb, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import type { DailyCompletion, HabitPerformanceData, ProgressPeriod } from "@/lib/progress-data";
 
-export function ProgressInsights({ habits, days, period, completedDelta }: { habits: HabitPerformanceData[]; days: DailyCompletion[]; period: ProgressPeriod; completedDelta: number }) {
-  if(!habits.length)return null;
+export function ProgressInsights({ habits, days, period, completedDelta, ready }: { habits: HabitPerformanceData[]; days: DailyCompletion[]; period: ProgressPeriod; completedDelta: number; ready:boolean }) {
+  if(!ready||habits.length<2)return null;
   const sortedHabits = [...habits].sort((a, b) => b.rates[period].overall - a.rates[period].overall);
   const strongestDay = [...days].sort((a, b) => (b.you + b.friend) - (a.you + a.friend))[0];
   const insights = [
-    `Your strongest shared habit is ${sortedHabits[0]?.name ?? "not yet known"}.`,
+    `Your strongest habit is ${sortedHabits[0]?.name ?? "not yet known"}.`,
     `You two are most consistent on ${strongestDay?.day ?? "upcoming day"}s.`,
     `${sortedHabits.at(-1)?.name} needs a little love.`,
-    `You completed ${completedDelta} more habits than last week.`,
+    ...(completedDelta>0?[`You completed ${completedDelta} more habits than last week.`]:[]),
   ];
 
   return (

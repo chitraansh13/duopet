@@ -119,6 +119,12 @@ await db.query('select set_goal_checkin($1,$2::date,10)',[goal,duoToday]);
 assert.equal((await one('select coalesce(sum(xp_amount) filter(where reversed_at is null),0)::int n from pet_xp_events')).n,55); checks++;
 assert.equal((await one('select count(*)::int n from pet_xp_events')).n,4); checks++;
 const challenge=(await one("insert into challenges(duo_id,linked_goal_id,name,mode,metric,target,start_date,end_date,created_by) values($1,$2,'Read together','together','target_days',5,$4::date,$4::date+6,$3) returning id",[duo,goal,ids[1],duoToday])).id;
+const liveScores=(await db.query('select user_id,score,shared_score from get_challenge_scores($1) where challenge_id=$2 order by user_id',[duo,challenge])).rows;
+assert.deepEqual(liveScores.map(row=>[row.score,row.shared_score]),[[1,1],[1,1]]); checks++;
+await reject("insert into challenges(duo_id,linked_goal_id,name,mode,metric,target,start_date,end_date,created_by) values($1,$2,'Intrusion','together','target_days',1,$3::date,$3::date,$4)",[other,goal,duoToday,ids[0]]);
+await reject("insert into challenges(duo_id,linked_goal_id,name,mode,metric,target,start_date,end_date,created_by) values($1,$2,'Impossible','together','target_days',2,$3::date,$3::date,$4)",[duo,goal,duoToday,ids[0]]);
+await reject("update challenges set status='completed' where id=$1",[challenge]);
+await reject("insert into challenge_results(challenge_id,outcome,shared_score,calculation_version) values($1,'winner',1,'spoof')",[challenge]);
 await reject("insert into pet_xp_events(duo_id,source_type,source_id,event_key,xp_amount,local_date) values($1,'perfect_day',$1,'test',10,$2::date)",[duo,duoToday]);
 await reject('delete from goals where id=$1',[goal]);
 await db.query("update goals set status='archived' where id=$1",[goal]);
@@ -147,13 +153,52 @@ await reject("update duo_pets set equipped_accessory_id='locked-hat' where duo_i
 await reject("insert into pet_room_items values($1,'locked-room-item')",[duo]);
 assert.equal((await db.query("update profiles set nickname='Intrusion' where id=$1 returning id",[ids[1]])).rows.length,0); checks++;
 await as(2);
+await reject('select * from get_challenge_scores($1)',[duo]);
+await reject('select * from get_pet_stats($1)',[duo]);
 for(const table of ['duos','duo_members','duo_pets','pet_unlocks','pet_room_items','pet_xp_events']) { assert.equal((await one(`select count(*)::int n from ${table} where ${table==='duos'?'id':'duo_id'}=$1`,[duo])).n,0); checks++; }
 for(const table of ['challenge_results','challenge_result_members']) { assert.equal((await one(`select count(*)::int n from ${table}`)).n,0); checks++; }
+await as(0);
+assert.equal((await one('select total_xp::int xp from get_pet_stats($1)',[duo])).xp,65); checks++;
+await reject("update duo_pets set equipped_accessory_id='lavender-collar' where duo_id=$1",[duo]);
+const sprint=(await one("select create_goal('Sprint','gym','shared','boolean',null,null,null,$1::jsonb) id",[JSON.stringify([{user_id:ids[0],target:null}])])).id;
+await db.query('select set_goal_checkin($1,$2::date,1)',[sprint,duoToday]);
+const head=(await one("insert into challenges(duo_id,linked_goal_id,name,mode,metric,target,start_date,end_date,created_by) values($1,$2,'Sprint duel','head_to_head','completion_count',1,$3::date,$3::date+2,$4) returning id",[duo,sprint,duoToday,ids[0]])).id;
+const team=(await one("insert into challenges(duo_id,linked_goal_id,name,mode,metric,target,start_date,end_date,created_by) values($1,$2,'Sprint together','together','completion_count',1,$3::date,$3::date+2,$4) returning id",[duo,sprint,duoToday,ids[0]])).id;
+assert.deepEqual((await db.query('select score from get_challenge_scores($1) where challenge_id=$2 order by user_id',[duo,head])).rows.map(row=>row.score),[1,0]); checks++;
+await db.exec('reset role');
+await db.query('update challenges set end_date=$1::date where id in ($2,$3)',[duoToday,head,team]);
+await db.exec("create or replace function private.duo_today(target_duo uuid) returns date language sql stable security definer set search_path='' as $$select current_date+1$$");
+await as(0);
+assert.equal((await one('select finalize_due_challenges() n')).n,2); checks++;
+assert.equal((await one('select finalize_due_challenges() n')).n,0); checks++;
+assert.equal((await one('select outcome from challenge_results where challenge_id=$1',[head])).outcome,'winner'); checks++;
+assert.equal((await one('select winner_user_id from challenge_results where challenge_id=$1',[head])).winner_user_id,ids[0]); checks++;
+assert.equal((await one('select outcome from challenge_results where challenge_id=$1',[team])).outcome,'together_completed'); checks++;
+const tie=(await one("insert into challenges(duo_id,linked_goal_id,name,mode,metric,target,start_date,end_date,created_by) values($1,$2,'Tomorrow tie','head_to_head','target_days',1,$3::date+1,$3::date+1,$4) returning id",[duo,sprint,duoToday,ids[0]])).id;
+await db.exec('reset role');
+await db.exec("create or replace function private.duo_today(target_duo uuid) returns date language sql stable security definer set search_path='' as $$select current_date+2$$");
+await as(0);
+assert.equal((await one('select finalize_due_challenges() n')).n,1); checks++;
+assert.equal((await one('select outcome from challenge_results where challenge_id=$1',[tie])).outcome,'tie'); checks++;
+await db.exec('reset role');
+const earnedKey='test-level-2';
+await db.query("insert into pet_xp_events(duo_id,source_type,source_id,event_key,xp_amount,local_date) values($1,'goal_completion',$2,$3,500,$4::date)",[duo,sprint,earnedKey,duoToday]);
+assert.equal((await one("select unlock_origin from pet_unlocks where duo_id=$1 and item_id='lavender-collar'",[duo])).unlock_origin,'earned'); checks++;
+await db.query('update pet_xp_events set reversed_at=now() where duo_id=$1 and event_key=$2',[duo,earnedKey]);
+assert.equal((await one("select unlock_origin from pet_unlocks where duo_id=$1 and item_id='lavender-collar'",[duo])).unlock_origin,'earned'); checks++;
+await db.query('update pet_xp_events set reversed_at=null where duo_id=$1 and event_key=$2',[duo,earnedKey]);
+assert.equal((await one("select count(*)::int n from pet_unlocks where duo_id=$1 and item_id='lavender-collar'",[duo])).n,1); checks++;
+await db.query('update pet_xp_events set reversed_at=now() where duo_id=$1 and event_key=$2',[duo,earnedKey]);
+await as(0);
+assert.equal((await db.query("update duo_pets set equipped_accessory_id='lavender-collar' where duo_id=$1 returning equipped_accessory_id",[duo])).rows[0].equipped_accessory_id,'lavender-collar'); checks++;
+await db.query("insert into pet_room_items(duo_id,item_id) values($1,'tennis-ball')",[duo]);
+assert.equal((await one("select count(*)::int n from pet_room_items where duo_id=$1 and item_id='tennis-ball'",[duo])).n,1); checks++;
+await reject("insert into pet_room_items(duo_id,item_id) values($1,'tennis-ball')",[other]);
 await db.exec('reset role; set role anon');
 await reject('select * from profiles'); await reject('select get_duo_context()'); await reject("select create_duo(null,'Brownie','UTC')"); await reject('select set_goal_checkin($1,$2::date,1)',[goal,duoToday]);
 await db.exec('reset role');
 await db.exec(readFileSync('supabase/manual/DESTRUCTIVE_TEST_DATA_RESET.sql','utf8'));
-for(const table of ['duos','duo_members','duo_pets','pet_unlocks','pet_room_items','goals','goal_assignments','goal_checkins','challenges','challenge_results','challenge_result_members','pet_xp_events']) {
+for(const table of ['duos','duo_members','duo_pets','pet_unlocks','pet_room_items','goals','goal_assignments','goal_checkins','goal_status_events','challenges','challenge_results','challenge_result_members','pet_xp_events']) {
   assert.equal((await one(`select count(*)::int n from ${table}`)).n,0); checks++;
 }
 assert.equal((await one('select count(*)::int n from auth.users')).n,8); checks++;

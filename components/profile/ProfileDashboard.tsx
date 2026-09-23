@@ -21,7 +21,7 @@ export function ProfileDashboard() {
   const { goals, currentUserId, partnerUserId } = useGoals();
   const { challenges } = useChallenges();
   const equipped=petAccessories.find((item)=>item.id===equippedAccessory);
-  const safeAccessory=equipped&&isPetItemUnlocked(equipped,runtime.companion.level,runtime.companion.perfectDays)?equippedAccessory:"basic-collar";
+  const safeAccessory=equipped&&(runtime.isDemoMode?isPetItemUnlocked(equipped,runtime.companion.level,runtime.companion.perfectDays):runtime.companion.unlockedItems.includes(equipped.id))?equippedAccessory:"basic-collar";
   const petProfile = { ...deriveToday(goals, currentUserId, partnerUserId,runtime.companion).pet, name: duo.brownieName, equippedAccessory:safeAccessory };
   const partner = duo.members.find((member) => member.userId !== profile.id);
   const duoProfile = { pairedSince: new Date(duo.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: duo.timezone }), memberNames: [profile.displayName, partner?.displayName ?? "Waiting for your partner"], streak: runtime.companion.currentStreak, perfectDays: runtime.companion.perfectDays };
@@ -45,7 +45,7 @@ export function ProfileDashboard() {
 
           <SettingsSection eyebrow="Together" title="Your Duo" icon={UsersRound}>
             <div className="flex items-center gap-3 px-4 py-4"><div className="flex -space-x-2"><Avatar initials={profile.initials} small /><Avatar initials={partner?.initials || "?"} small friend /></div><div><p className="font-semibold">{duoProfile.memberNames.join(" + ")}</p><p className="text-xs text-muted">Brownie’s humans</p></div></div>
-            <div className="grid grid-cols-3 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /><Stat value={challenges.filter((challenge) => challenge.status === "active" && goals.some((goal) => goal.id === challenge.linkedGoalId)).length} label="Challenges" /></div>
+            <div className="grid grid-cols-3 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /><Stat value={challenges.filter((challenge) => challenge.status === "active").length} label="Challenges" /></div>
             <div className="border-t border-line px-4 py-3"><p className="text-xs font-semibold">Duo management</p><p className="mt-1 text-xs leading-5 text-muted"><Link href="/onboarding" className="font-semibold text-accent">View your duo and invite</Link></p></div>
           </SettingsSection>
 

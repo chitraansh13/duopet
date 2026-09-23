@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node audit.test.cjs && node backend.test.cjs && node production.test.cjs && node database.test.mjs"
+    "test": "node audit.test.cjs && node backend.test.cjs && node production.test.cjs && node phase3.test.cjs && node database.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

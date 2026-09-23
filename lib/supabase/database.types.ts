@@ -383,6 +383,12 @@ export type Database = {
           },
         ]
       }
+      goal_status_events: {
+        Row: { goal_id: string; effective_date: string; status: string; changed_at: string }
+        Insert: { goal_id: string; effective_date: string; status: string; changed_at?: string }
+        Update: { goal_id?: string; effective_date?: string; status?: string; changed_at?: string }
+        Relationships: [{ foreignKeyName: "goal_status_events_goal_id_fkey"; columns: ["goal_id"]; isOneToOne: false; referencedRelation: "goals"; referencedColumns: ["id"] }]
+      }
       goals: {
         Row: {
           archived_at: string | null
@@ -490,18 +496,21 @@ export type Database = {
           duo_id: string
           item_id: string
           item_kind: string
+          unlock_origin: string
           unlocked_at: string
         }
         Insert: {
           duo_id: string
           item_id: string
           item_kind: string
+          unlock_origin?: string
           unlocked_at?: string
         }
         Update: {
           duo_id?: string
           item_id?: string
           item_kind?: string
+          unlock_origin?: string
           unlocked_at?: string
         }
         Relationships: [
@@ -606,6 +615,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      finalize_due_challenges: { Args: never; Returns: number }
+      get_challenge_scores: { Args: { p_duo_id: string }; Returns: { challenge_id: string; user_id: string; score: number; shared_score: number }[] }
+      get_pet_stats: { Args: { p_duo_id: string }; Returns: { total_xp: number; perfect_days: number; current_streak: number; best_streak: number }[] }
       create_duo: {
         Args: {
           p_brownie_name: string

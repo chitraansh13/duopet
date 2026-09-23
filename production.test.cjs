@@ -9,13 +9,13 @@ for(const path of ['app/(app)/page.tsx','components/challenges/ChallengeProvider
 }
 assert.match(read('lib/data-source.ts'),/DUOPET_DATA_MODE === "demo"/);
 assert.match(read('components/progress/ProgressDashboard.tsx'),/Your progress will appear here as you build your rhythm/);
-assert.match(read('lib/repositories/runtime.ts'),/row\.local_date < today && Number\(row\.value\) > 0/);
+assert.match(read('lib/progress-history.ts'),/checkIns\.filter\(\(row\) => Number\(row\.value\) > 0\)/);
 assert.match(read('components/progress/DuoHeatmap.tsx'),/No activity recorded for this day/);
 assert.match(read('components/challenges/ChallengesDashboard.tsx'),/No challenges yet/);
 assert.match(read('components/pet/PetActivityFeed.tsx'),/waiting for your first win today/);
-assert.doesNotMatch(read('components/tasks/TaskDetail.tsx'),/taskHistory|Demo preview/);
-assert.doesNotMatch(read('components/pet/PetDashboard.tsx'),/unlockedItems\.includes/);
-assert.doesNotMatch(read('components/profile/ProfileDashboard.tsx'),/unlockedItems\.includes/);
+assert.match(read('components/tasks/TaskDetail.tsx'),/loadTaskHistory/);
+assert.match(read('components/pet/PetDashboard.tsx'),/runtime\.companion\.unlockedItems\.includes/);
+assert.match(read('components/profile/ProfileDashboard.tsx'),/runtime\.companion\.unlockedItems\.includes/);
 assert.doesNotMatch(read('components/AppShell.tsx'),/mock-data/);
 const form=read('components/tasks/GoalForm.tsx');
 for(const expected of ['Saving…','readOnly','Starting tomorrow','Apply new target','pending||saving'])assert.ok(form.includes(expected),`Goal save UX missing ${expected}`);
