@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { GoalIcon } from "@/components/goals/GoalIcon";
 import { useGoals } from "@/components/goals/GoalProvider";
-import type { GoalDefinition, GoalIconName, GoalScope, MeasurementKind, TrackingType, UserId } from "@/lib/goal-data";
+import type { GoalDefinition, GoalIconName, GoalScope, MeasurementKind, TrackingType, UserId, TargetDirection } from "@/lib/goal-data";
 
 const icons: GoalIconName[] = ["gym", "study", "brain", "calories", "tea", "steps", "water", "check", "flame"];
 const numberUnits = ["g", "kcal", "cups", "problems", "pages", "ml", "L", "custom"];
@@ -20,6 +20,7 @@ export function GoalForm({ initial, onSubmit, onCancel }: { initial?: GoalDefini
   const [scope, setScope] = useState<GoalScope>(initial?.scope ?? "personal");
   const [trackingType, setTrackingType] = useState<TrackingType>(initial?.trackingType ?? "boolean");
   const [measurementKind, setMeasurementKind] = useState<MeasurementKind>(initial?.measurementKind ?? "number");
+  const [targetDirection,setTargetDirection]=useState<TargetDirection>(initial?.targetDirection??"minimum");
   const initialUnit = initial?.unit ?? "g";
   const [unit, setUnit] = useState(numberUnits.includes(initialUnit) || ["min", "hrs"].includes(initialUnit) ? initialUnit : "custom");
   const [customUnit, setCustomUnit] = useState(numberUnits.includes(initialUnit) || ["min", "hrs"].includes(initialUnit) ? "" : initialUnit);
@@ -45,6 +46,8 @@ export function GoalForm({ initial, onSubmit, onCancel }: { initial?: GoalDefini
     try{await onSubmit({
       id: initial?.id ?? `goal-${Date.now()}`,
       name: name.trim(), icon, scope, trackingType,
+      targetDirection: measured?targetDirection:"minimum",
+      progressSource: initial?.progressSource??"manual",
       measurementKind: measured ? measurementKind : undefined,
       unit: finalUnit,
       status: initial?.status ?? "active",
@@ -69,6 +72,7 @@ export function GoalForm({ initial, onSubmit, onCancel }: { initial?: GoalDefini
       <fieldset disabled={Boolean(initial)} className="mt-5 disabled:opacity-65"><legend className="text-xs font-semibold text-muted">Tracking</legend><div className="mt-2 grid grid-cols-2 gap-2">{(["boolean", "measured"] as TrackingType[]).map((value) => <button key={value} type="button" onClick={() => setTrackingType(value)} aria-pressed={trackingType === value} className={`min-h-11 rounded-xl text-xs font-bold ${trackingType === value ? "bg-accent text-on-accent" : "bg-subtle text-muted"}`}>{value === "boolean" ? "Not Measured" : "Measured"}</button>)}</div></fieldset>
 
       {trackingType === "measured" && <div className="mt-5 space-y-4 rounded-2xl bg-subtle p-4">
+        <fieldset disabled={Boolean(initial)}><legend className="text-xs font-semibold text-muted">Target direction</legend><div className="mt-2 grid grid-cols-2 gap-2">{(["minimum","maximum"] as TargetDirection[]).map((value)=><button key={value} type="button" onClick={()=>setTargetDirection(value)} aria-pressed={targetDirection===value} className={`min-h-10 rounded-xl text-xs font-bold ${targetDirection===value?"bg-surface text-accent shadow-soft":"text-muted"}`}>{value==="minimum"?"At least":"At most"}</button>)}</div>{initial&&<p className="mt-1 text-[11px] text-muted">Direction stays fixed for this goal so past days keep their meaning.</p>}</fieldset>
         {initial?.targets.some((target) => target.nextTargetFrom) && <p className="text-[11px] leading-5 text-muted">Scheduled targets take effect on the next duo day. Today keeps its current target.</p>}
         <fieldset disabled={Boolean(initial)}><legend className="text-xs font-semibold text-muted">Measurement type</legend><div className="mt-2 grid grid-cols-2 gap-2">{(["number", "duration"] as MeasurementKind[]).map((value) => <button key={value} type="button" onClick={() => { setMeasurementKind(value); setUnit(value === "duration" ? "min" : "g"); }} aria-pressed={measurementKind === value} className={`min-h-10 rounded-xl text-xs font-bold ${measurementKind === value ? "bg-surface text-accent shadow-soft" : "text-muted"}`}>{value === "number" ? "Number" : "Duration"}</button>)}</div></fieldset>
         <label className="block text-xs font-semibold text-muted">Unit<select disabled={Boolean(initial)} value={unit} onChange={(event) => setUnit(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink outline-none focus:ring-2 focus:ring-accent/35 disabled:opacity-65">{(measurementKind === "duration" ? ["min", "hrs"] : numberUnits).map((value) => <option key={value} value={value}>{value === "min" ? "minutes" : value === "hrs" ? "hours" : value}</option>)}</select></label>

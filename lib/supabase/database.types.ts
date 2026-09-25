@@ -230,6 +230,30 @@ export type Database = {
           },
         ]
       }
+      foods: {
+        Row: { id: string; duo_id: string; created_by: string; name: string; serving_description: string; calories_per_serving: number; protein_grams_per_serving: number; created_at: string; updated_at: string; archived_at: string | null }
+        Insert: { id?: string; duo_id: string; created_by: string; name: string; serving_description: string; calories_per_serving: number; protein_grams_per_serving: number; created_at?: string; updated_at?: string; archived_at?: string | null }
+        Update: { id?: string; duo_id?: string; created_by?: string; name?: string; serving_description?: string; calories_per_serving?: number; protein_grams_per_serving?: number; created_at?: string; updated_at?: string; archived_at?: string | null }
+        Relationships: []
+      }
+      food_log_entries: {
+        Row: { id: string; duo_id: string; user_id: string; food_id: string; local_date: string; quantity: number; calories_snapshot: number; protein_snapshot: number; serving_snapshot: string; food_name_snapshot: string; created_at: string; updated_at: string }
+        Insert: { id?: string; duo_id: string; user_id: string; food_id: string; local_date: string; quantity: number; calories_snapshot: number; protein_snapshot: number; serving_snapshot: string; food_name_snapshot: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; duo_id?: string; user_id?: string; food_id?: string; local_date?: string; quantity?: number; calories_snapshot?: number; protein_snapshot?: number; serving_snapshot?: string; food_name_snapshot?: string; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      sharing_preferences: {
+        Row: { user_id: string; share_personal_goals: boolean; share_food_diary: boolean; share_nutrition_totals: boolean; updated_at: string }
+        Insert: { user_id: string; share_personal_goals?: boolean; share_food_diary?: boolean; share_nutrition_totals?: boolean; updated_at?: string }
+        Update: { user_id?: string; share_personal_goals?: boolean; share_food_diary?: boolean; share_nutrition_totals?: boolean; updated_at?: string }
+        Relationships: []
+      }
+      food_day_updates: {
+        Row: { user_id: string; duo_id: string; local_date: string; updated_at: string }
+        Insert: { user_id: string; duo_id: string; local_date: string; updated_at?: string }
+        Update: { user_id?: string; duo_id?: string; local_date?: string; updated_at?: string }
+        Relationships: []
+      }
       duos: {
         Row: {
           created_at: string
@@ -320,6 +344,8 @@ export type Database = {
         Row: {
           assignment_id: string
           completed: boolean | null
+          direction_snapshot: string
+          finalized_at: string | null
           created_at: string
           goal_id: string
           id: string
@@ -334,6 +360,8 @@ export type Database = {
         Insert: {
           assignment_id: string
           completed?: boolean | null
+          direction_snapshot?: string
+          finalized_at?: string | null
           created_at?: string
           goal_id: string
           id?: string
@@ -348,6 +376,8 @@ export type Database = {
         Update: {
           assignment_id?: string
           completed?: boolean | null
+          direction_snapshot?: string
+          finalized_at?: string | null
           created_at?: string
           goal_id?: string
           id?: string
@@ -405,6 +435,8 @@ export type Database = {
           scope: string
           status: string
           tracking_type: string
+          target_direction: string
+          progress_source: string
           unit: string | null
           updated_at: string
         }
@@ -423,6 +455,8 @@ export type Database = {
           scope: string
           status?: string
           tracking_type: string
+          target_direction?: string
+          progress_source?: string
           unit?: string | null
           updated_at?: string
         }
@@ -441,6 +475,8 @@ export type Database = {
           scope?: string
           status?: string
           tracking_type?: string
+          target_direction?: string
+          progress_source?: string
           unit?: string | null
           updated_at?: string
         }
@@ -615,6 +651,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_food_totals: { Args: { p_user_id: string; p_from: string; p_to: string }; Returns: { local_date: string; calories: number; protein: number }[] }
+      create_directed_goal: { Args: { p_name: string; p_icon_key: string; p_scope: string; p_tracking_type: string; p_measurement_kind: string; p_display_unit: string; p_notes: string; p_targets: Json; p_target_direction: string }; Returns: string }
+      save_food_log: { Args: { p_food_id: string; p_quantity: number; p_entry_id?: string | null }; Returns: Database["public"]["Tables"]["food_log_entries"]["Row"] }
+      delete_food_log: { Args: { p_entry_id: string }; Returns: boolean }
+      finalize_due_goal_days: { Args: never; Returns: number }
       finalize_due_challenges: { Args: never; Returns: number }
       get_challenge_scores: { Args: { p_duo_id: string }; Returns: { challenge_id: string; user_id: string; score: number; shared_score: number }[] }
       get_pet_stats: { Args: { p_duo_id: string }; Returns: { total_xp: number; perfect_days: number; current_streak: number; best_streak: number }[] }
@@ -670,6 +711,8 @@ export type Database = {
         Returns: {
           assignment_id: string
           completed: boolean | null
+          direction_snapshot: string
+          finalized_at: string | null
           created_at: string
           goal_id: string
           id: string

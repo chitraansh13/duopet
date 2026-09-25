@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useGoals } from "@/components/goals/GoalProvider";
+import { useSession } from "@/components/SessionProvider";
 import { getGoalTarget } from "@/lib/goal-data";
 import { TaskDetail } from "./TaskDetail";
 import { TaskRow } from "./TaskRow";
@@ -13,19 +14,21 @@ const filters: Array<{ id: Filter; label: string }> = [{ id: "all", label: "All"
 
 export function TasksDashboard() {
   const { goals, currentUserId } = useGoals();
+  const { partnerSharing,sharingLoaded } = useSession();
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelected] = useState<string | null>(null);
   const selected = goals.find((goal) => goal.id === selectedId);
-  const manageable = goals.filter((goal) => goal.scope === "shared" || getGoalTarget(goal, currentUserId));
+  const manageable = goals.filter((goal) => goal.scope === "shared" || getGoalTarget(goal, currentUserId) || partnerSharing.share_personal_goals);
   const visible = manageable.filter((goal) => {
     if (filter === "paused") return goal.status === "paused";
     if (goal.status !== "active") return false;
     if (filter === "shared") return goal.scope === "shared";
-    if (filter === "mine") return goal.scope === "personal";
+    if (filter === "mine") return goal.scope === "personal" && Boolean(getGoalTarget(goal,currentUserId));
     return true;
   });
   const shared = visible.filter((goal) => goal.scope === "shared");
-  const personal = visible.filter((goal) => goal.scope === "personal");
+  const personal = visible.filter((goal) => goal.scope === "personal" && getGoalTarget(goal,currentUserId));
+  const partnerPersonal = visible.filter((goal) => goal.scope === "personal" && !getGoalTarget(goal,currentUserId));
 
   return (
     <div className="space-y-5 py-4 sm:space-y-6 sm:py-7">
@@ -37,6 +40,8 @@ export function TasksDashboard() {
         <div className="space-y-6">
           {shared.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Shared goals</h2><span className="text-xs text-muted">{shared.length} goals</span></div><div className="grid gap-3 md:grid-cols-2">{shared.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
           {personal.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">My goals</h2><span className="text-xs text-muted">Only you can update these</span></div><div className="grid gap-3 md:grid-cols-2">{personal.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
+          {partnerPersonal.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Partner’s personal goals</h2><span className="text-xs text-muted">Read only</span></div><div className="grid gap-3 md:grid-cols-2">{partnerPersonal.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
+          {filter==="all"&&sharingLoaded&&!partnerSharing.share_personal_goals&&<p className="text-xs text-muted">Your partner’s personal goals are private.</p>}
           {visible.length === 0 && <div className="rounded-[1.5rem] bg-surface p-10 text-center shadow-soft"><p className="font-bold">Nothing here yet.</p><p className="mt-1 text-sm text-muted">Paused goals will wait here until you’re ready.</p></div>}
         </div>
         <AnimatePresence mode="wait">{selected ? <motion.div key={selected.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}><TaskDetail goal={selected} onClose={() => setSelected(null)} /></motion.div> : <aside className="hidden rounded-[1.5rem] bg-surface p-6 text-center shadow-soft lg:block"><p className="font-bold">Choose a task</p><p className="mt-2 text-sm leading-6 text-muted">Open any goal to see targets, today’s status, and recent history.</p></aside>}</AnimatePresence>

@@ -17,7 +17,7 @@ function percentage(done:number,total:number){return total?Math.round(done/total
 
 export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], checkIns: CheckInRow[], events: XpRow[], statusEvents:StatusRow[], stats:PetStats, duo: AccountDuo, currentId: string, today: string): ProgressDataset {
   const partnerId = duo.members.find((member) => member.userId !== currentId)?.userId;
-  const historyRows = checkIns.filter((row) => Number(row.value) > 0);
+  const historyRows = checkIns.filter((row) => Number(row.value) > 0 || Boolean(row.completed));
   const hasHistory = historyRows.length > 0;
   const byGoal = new Map(goals.map((goal) => [goal.id,goal]));
   const workedOn=new Set(checkIns.map((row)=>`${row.goal_id}:${row.local_date}`));

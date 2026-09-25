@@ -13,9 +13,9 @@ import { useGoals } from "@/components/goals/GoalProvider";
 import { deriveToday } from "@/lib/today";
 
 export function PetDashboard() {
-  const { accessory, setAccessory, activeRoomItems, toggleRoomItem, encouragement, duo,runtime,error,saving } = useSession();
+  const { accessory, setAccessory, activeRoomItems, toggleRoomItem, encouragement, duo,runtime,error,saving,partnerSharing } = useSession();
   const { goals, currentUserId, partnerUserId } = useGoals();
-  const { pet } = deriveToday(goals, currentUserId, partnerUserId,runtime.companion);
+  const { pet } = deriveToday(goals, currentUserId, partnerUserId,runtime.companion,partnerSharing.share_nutrition_totals);
   const activities=runtime.companion.activities;
   const [reacting, setReacting] = useState(false);
   const [reactionKey, setReactionKey] = useState(0);

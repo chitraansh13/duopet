@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { GoalRepositoryError, createGoal, loadGoalState, saveCheckIn, setGoalStatus, updateGoal,updateOwnTarget } from "@/lib/repositories/goals";
 import { addDays } from "@/lib/date";
 import { mergeCheckIn, type CheckInRow } from "@/lib/repositories/goal-adapters";
+import { redactPartnerGoals } from "@/lib/sharing";
 
 interface GoalContextValue {
   goals: GoalDefinition[];
@@ -21,6 +22,7 @@ interface GoalContextValue {
   deleteGoal: (goalId: string) => Promise<boolean>;
   setStatus: (goalId: string, status: GoalStatus) => Promise<boolean>;
   setProgress: (goalId: string, userId: UserId, value: number) => Promise<boolean>;
+  refreshGoals: () => Promise<void>;
 }
 const GoalContext = createContext<GoalContextValue | null>(null);
 
@@ -29,11 +31,13 @@ function message(error: unknown) {
 }
 
 export function GoalProvider({ children, initialState }: { children: React.ReactNode; initialState: GoalState }) {
-  const { profile, duo,refreshRuntime } = useSession();
+  const { profile, duo,refreshRuntime,partnerSharing } = useSession();
   const partnerUserId = duo.members.find((member) => member.userId !== profile.id)?.userId;
   if (!partnerUserId) throw new Error("GoalProvider requires a complete duo");
   const client = useMemo(() => createClient(), []);
   const [state, setState] = useState(initialState);
+  const sharingRef = useRef(partnerSharing);
+  sharingRef.current = partnerSharing;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [notice,setNotice]=useState<string>();
@@ -42,9 +46,14 @@ export function GoalProvider({ children, initialState }: { children: React.React
   const checkInQueue = useRef(new Map<string, Promise<boolean>>());
 
   const refresh = useCallback(async (date = duoDateKey(duo.timezone)) => {
-    try { setState(await loadGoalState(client, duo.id, date)); setError(undefined); }
+    try { const next=await loadGoalState(client, duo.id, date);setState(redactPartnerGoals(next,partnerUserId,sharingRef.current)); setError(undefined); }
     catch (cause) { setError(message(cause)); }
-  }, [client, duo.id, duo.timezone]);
+  }, [client, duo.id, duo.timezone,partnerUserId]);
+  useEffect(() => {
+    setState((current) => redactPartnerGoals(current,partnerUserId,partnerSharing));
+    void refresh();
+  }, [partnerUserId,partnerSharing,refresh]);
+  const refreshGoals = useCallback(async () => { await refresh(); await refreshRuntime(); }, [refresh, refreshRuntime]);
 
   useEffect(() => {
     const refreshDay = () => {
@@ -62,7 +71,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_checkins", filter: `local_date=eq.${state.date}` }, (payload) => {
         const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as Partial<CheckInRow>;
         if (!row.goal_id || !row.user_id || !relevantUsers.has(row.user_id) || !row.local_date) return;
-        setState((current) => mergeCheckIn(current, row as CheckInRow, payload.eventType === "DELETE" ? "delete" : "upsert"));
+        setState((current) => redactPartnerGoals(mergeCheckIn(current, row as CheckInRow, payload.eventType === "DELETE" ? "delete" : "upsert"),partnerUserId,sharingRef.current));
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `duo_id=eq.${duo.id}` }, () => { void refresh(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_assignments" }, (payload) => {
@@ -73,7 +82,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
     return () => { void client.removeChannel(channel); };
   }, [client, duo.id, partnerUserId, profile.id, refresh, state.date, state.definitions]);
 
-  const goals = useMemo(() => selectGoals(state), [state]);
+  const goals = useMemo(() => selectGoals(redactPartnerGoals(state,partnerUserId,partnerSharing)), [state,partnerUserId,partnerSharing]);
   useEffect(()=>()=>{if(noticeTimer.current)clearTimeout(noticeTimer.current);},[]);
   function saved(text:string){setNotice(text);if(noticeTimer.current)clearTimeout(noticeTimer.current);noticeTimer.current=setTimeout(()=>setNotice(undefined),1800);}
   async function mutate<T>(operation: () => Promise<T>,success?:string) {
@@ -91,6 +100,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
     partnerUserId,
     saving,
     error,
+    refreshGoals,
     addGoal: async (goal) => mutate(async () => { const id = await createGoal(client, goal); await refresh(); return id; },"Goal added"),
     updateGoal: async (goal,timing="today") => {
       const original = goals.find((item) => item.id === goal.id);
@@ -114,6 +124,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
       const queued = previous.catch(() => false).then(async () => Boolean(await mutate(async () => {
         const goal = goals.find((item) => item.id === goalId);
         if (!goal) throw new GoalRepositoryError("This goal is no longer available.");
+        if (goal.progressSource && goal.progressSource !== "manual") throw new GoalRepositoryError("Log food to update this goal.");
         const row = await saveCheckIn(client, goal, state.date, progress);
         setState((current) => mergeCheckIn(current, row, "upsert"));
         await refreshRuntime();

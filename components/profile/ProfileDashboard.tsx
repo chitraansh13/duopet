@@ -13,16 +13,14 @@ import { isPetItemUnlocked,petAccessories } from "@/lib/pet-data";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { useSession } from "@/components/SessionProvider";
 import { useGoals } from "@/components/goals/GoalProvider";
-import { useChallenges } from "@/components/challenges/ChallengeProvider";
 import { deriveToday } from "@/lib/today";
 
 export function ProfileDashboard() {
-  const { profile, setProfile, encouragement, setEncouragement, accessory: equippedAccessory, duo, saving, error,runtime } = useSession();
+  const { profile, setProfile, encouragement, setEncouragement, ownSharing, partnerSharing, sharingLoaded, sharingSaving, setSharing, accessory: equippedAccessory, duo, saving, error,runtime } = useSession();
   const { goals, currentUserId, partnerUserId } = useGoals();
-  const { challenges } = useChallenges();
   const equipped=petAccessories.find((item)=>item.id===equippedAccessory);
   const safeAccessory=equipped&&(runtime.isDemoMode?isPetItemUnlocked(equipped,runtime.companion.level,runtime.companion.perfectDays):runtime.companion.unlockedItems.includes(equipped.id))?equippedAccessory:"basic-collar";
-  const petProfile = { ...deriveToday(goals, currentUserId, partnerUserId,runtime.companion).pet, name: duo.brownieName, equippedAccessory:safeAccessory };
+  const petProfile = { ...deriveToday(goals, currentUserId, partnerUserId,runtime.companion,partnerSharing.share_nutrition_totals).pet, name: duo.brownieName, equippedAccessory:safeAccessory };
   const partner = duo.members.find((member) => member.userId !== profile.id);
   const duoProfile = { pairedSince: new Date(duo.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: duo.timezone }), memberNames: [profile.displayName, partner?.displayName ?? "Waiting for your partner"], streak: runtime.companion.currentStreak, perfectDays: runtime.companion.perfectDays };
   const [editing, setEditing] = useState(false);
@@ -45,7 +43,7 @@ export function ProfileDashboard() {
 
           <SettingsSection eyebrow="Together" title="Your Duo" icon={UsersRound}>
             <div className="flex items-center gap-3 px-4 py-4"><div className="flex -space-x-2"><Avatar initials={profile.initials} small /><Avatar initials={partner?.initials || "?"} small friend /></div><div><p className="font-semibold">{duoProfile.memberNames.join(" + ")}</p><p className="text-xs text-muted">Brownie’s humans</p></div></div>
-            <div className="grid grid-cols-3 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /><Stat value={challenges.filter((challenge) => challenge.status === "active").length} label="Challenges" /></div>
+            <div className="grid grid-cols-2 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /></div>
             <div className="border-t border-line px-4 py-3"><p className="text-xs font-semibold">Duo management</p><p className="mt-1 text-xs leading-5 text-muted"><Link href="/onboarding" className="font-semibold text-accent">View your duo and invite</Link></p></div>
           </SettingsSection>
 
@@ -61,6 +59,12 @@ export function ProfileDashboard() {
           <SettingsSection eyebrow="Personal touches" title="Preferences" icon={CircleUserRound}>
             <ToggleRow checked={encouragement} onChange={setEncouragement} disabled={saving} title="Brownie encouragement" subtitle="Show playful check-ins from Brownie" />
             <InfoRow icon={Sparkles} title="Motion" subtitle="Animations follow your device’s Reduce Motion setting." />
+          </SettingsSection>
+
+          <SettingsSection eyebrow="Privacy" title="Sharing with your duo" icon={UsersRound}>
+            <ToggleRow checked={ownSharing.share_personal_goals} onChange={(value)=>{void setSharing("share_personal_goals",value);}} disabled={!sharingLoaded||Boolean(sharingSaving)} title="Share personal goals" subtitle="Allow your partner to see your personal goals and progress." />
+            <ToggleRow checked={ownSharing.share_food_diary} onChange={(value)=>{void setSharing("share_food_diary",value);}} disabled={!sharingLoaded||Boolean(sharingSaving)} title="Share food diary" subtitle="Allow your partner to see foods you log and your food history." />
+            <ToggleRow checked={ownSharing.share_nutrition_totals} onChange={(value)=>{void setSharing("share_nutrition_totals",value);}} disabled={!sharingLoaded||Boolean(sharingSaving)} title="Share nutrition totals" subtitle="Allow your partner to see daily calorie and protein totals." />
           </SettingsSection>
 
           <SettingsSection eyebrow="Quick access" title="Goals" icon={Goal}><SettingsLink href="/tasks/manage" icon={Goal} title="Manage Goals" subtitle="Add, edit, pause, or remove goals" /></SettingsSection>

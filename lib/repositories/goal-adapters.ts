@@ -60,6 +60,8 @@ export function goalStateFromRows(
       icon: icon(goal.icon_key),
       scope: scope(goal.scope),
       trackingType: tracking(goal.tracking_type),
+      targetDirection: goal.target_direction === "maximum" ? "maximum" : "minimum",
+      progressSource: goal.progress_source === "food_calories" || goal.progress_source === "food_protein" ? goal.progress_source : "manual",
       measurementKind: measurement(goal.measurement_kind) ?? undefined,
       unit,
       targets: activeAssignments.filter((item) => item.goal_id === goal.id).map((item) => {
@@ -83,7 +85,7 @@ export function goalStateFromRows(
   const checkInState: GoalCheckIn[] = checkIns.filter((entry) => entry.local_date === date).flatMap((entry) => {
     const goal = goals.find((item) => item.id === entry.goal_id);
     if (!goal) return [];
-    return [{ goalId: entry.goal_id, userId: entry.user_id, date: entry.local_date, value: displayValue(Number(entry.value), goal.measurement_kind, goal.display_unit) }];
+    return [{ goalId: entry.goal_id, userId: entry.user_id, date: entry.local_date, value: displayValue(Number(entry.value), goal.measurement_kind, goal.display_unit), finalized: Boolean(entry.finalized_at) }];
   });
   return { definitions, checkIns: checkInState, date };
 }
@@ -101,6 +103,7 @@ export function mergeCheckIn(state: GoalState, row: CheckInRow, event: "upsert" 
       userId: row.user_id,
       date: row.local_date,
       value: displayValue(Number(row.value), definition.measurementKind ?? null, definition.unit ?? null),
+      finalized: Boolean(row.finalized_at),
     }],
   };
 }

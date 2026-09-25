@@ -50,14 +50,15 @@ export async function loadGoalState(client: Client, duoId: string, date: string)
 }
 
 export async function createGoal(client: Client, goal: GoalDefinition) {
-  const { data, error } = await client.rpc("create_goal", args(goal));
+  const { data, error } = await client.rpc("create_directed_goal", { ...args(goal), p_target_direction: goal.targetDirection ?? "minimum" });
   if (error || !data) fail("This goal couldn’t be saved. Please check the targets and try again.");
   return data;
 }
 
 function sameDefinition(a: GoalDefinition, b: GoalDefinition) {
   return a.scope === b.scope && a.trackingType === b.trackingType
-    && a.measurementKind === b.measurementKind && a.unit === b.unit;
+    && a.measurementKind === b.measurementKind && a.unit === b.unit
+    && (a.targetDirection ?? "minimum") === (b.targetDirection ?? "minimum");
 }
 
 export async function updateGoal(client: Client, original: GoalDefinition, next: GoalDefinition) {

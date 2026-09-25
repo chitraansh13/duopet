@@ -9,7 +9,7 @@ for(const path of ['app/(app)/page.tsx','components/challenges/ChallengeProvider
 }
 assert.match(read('lib/data-source.ts'),/DUOPET_DATA_MODE === "demo"/);
 assert.match(read('components/progress/ProgressDashboard.tsx'),/Your progress will appear here as you build your rhythm/);
-assert.match(read('lib/progress-history.ts'),/checkIns\.filter\(\(row\) => Number\(row\.value\) > 0\)/);
+assert.match(read('lib/progress-history.ts'),/checkIns\.filter\(\(row\) => Number\(row\.value\) > 0 \|\| Boolean\(row\.completed\)\)/);
 assert.match(read('components/progress/DuoHeatmap.tsx'),/No activity recorded for this day/);
 assert.match(read('components/challenges/ChallengesDashboard.tsx'),/No challenges yet/);
 assert.match(read('components/pet/PetActivityFeed.tsx'),/waiting for your first win today/);

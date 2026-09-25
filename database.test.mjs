@@ -68,6 +68,7 @@ await reject('select join_duo($1)',[code]);
 await as(2); await reject('select join_duo($1)',[code]);
 const other=(await one("select create_duo(null,'Cocoa','America/New_York') as id")).id;
 assert.equal((await one('select count(*)::int as n from duos where id=$1',[duo])).n,0); checks++;
+assert.equal((await one('select count(*)::int n from sharing_preferences where user_id=$1',[ids[0]])).n,0); checks++;
 await as(0);
 assert.equal((await one('select seed_default_goals() as seeded')).seeded,true); checks++;
 assert.equal((await one('select seed_default_goals() as seeded')).seeded,false); checks++;
@@ -83,6 +84,21 @@ await reject("insert into goals(duo_id,scope,name,tracking_type,created_by) valu
 await reject("insert into goal_assignments(goal_id,user_id,target_value,canonical_unit,active_from) values($1,$2,20,'pages',$3::date)",[goal,ids[0],duoToday]);
 const personalTargets=JSON.stringify([{user_id:ids[0],target:null}]);
 const personal=(await one("select create_goal('DSA','brain','personal','boolean',null,null,null,$1::jsonb) as id",[personalTargets])).id;
+await db.query('select set_goal_checkin($1,$2::date,0)',[personal,duoToday]);
+await as(1);
+assert.equal((await one('select count(*)::int n from goals where id=$1',[personal])).n,1); checks++;
+assert.equal((await one('select count(*)::int n from goal_checkins where goal_id=$1',[personal])).n,1); checks++;
+assert.equal((await db.query('update goals set name=$2 where id=$1 returning id',[personal,'Spoof'])).rows.length,0); checks++;
+await reject('select set_goal_checkin($1,$2::date,1)',[personal,duoToday]);
+await reject('select set_my_goal_target($1,2,$2::date)',[personal,duoToday]);
+assert.equal((await db.query('update sharing_preferences set share_personal_goals=false where user_id=$1 returning user_id',[ids[0]])).rows.length,0); checks++;
+await as(0);await db.query('update sharing_preferences set share_personal_goals=false where user_id=$1',[ids[0]]);
+await as(1);assert.equal((await one('select count(*)::int n from goals where id=$1',[personal])).n,0); checks++;
+assert.equal((await one('select count(*)::int n from goal_assignments where goal_id=$1',[personal])).n,0); checks++;
+assert.equal((await one('select count(*)::int n from goal_checkins where goal_id=$1',[personal])).n,0); checks++;
+await as(0);assert.equal((await one('select count(*)::int n from goals where id=$1',[personal])).n,1); checks++;
+assert.equal((await one('select count(*)::int n from goal_checkins where goal_id=$1',[personal])).n,1); checks++;
+await db.query('update sharing_preferences set share_personal_goals=true where user_id=$1',[ids[0]]);
 await db.query("update goals set status='archived' where id<>$1",[goal]);
 assert.equal((await one("select status from goals where name='Gym'")).status,'archived'); checks++;
 await as(1);
@@ -100,15 +116,15 @@ assert.equal((await one('select count(*)::int n from pet_xp_events')).n,1); chec
 await reject('insert into goal_checkins(goal_id,user_id,local_date,value) values($1,$2,$3::date,10)',[goal,ids[1],duoToday]);
 const changedTargets=JSON.stringify([{user_id:ids[0],target:20},{user_id:ids[1],target:10}]);
 await db.query("select update_goal($1,'Read','study',null,$2::jsonb)",[goal,changedTargets]);
-let check=await one('select completed,target_snapshot from goal_checkins'); assert.equal(check.completed,true); assert.equal(Number(check.target_snapshot),10); checks++;
+let check=await one('select completed,target_snapshot from goal_checkins where goal_id=$1',[goal]); assert.equal(check.completed,true); assert.equal(Number(check.target_snapshot),10); checks++;
 assert.equal(Number((await one('select target_value from goal_assignments where goal_id=$1 and user_id=$2 and active_until is null',[goal,ids[0]])).target_value),10); checks++;
 await db.query('select set_my_goal_target($1,20,$2::date)',[goal,duoToday]);
-check=await one('select completed,target_snapshot from goal_checkins where user_id=$1',[ids[0]]); assert.equal(check.completed,false); assert.equal(Number(check.target_snapshot),20); checks++;
+check=await one('select completed,target_snapshot from goal_checkins where user_id=$1 and goal_id=$2',[ids[0],goal]); assert.equal(check.completed,false); assert.equal(Number(check.target_snapshot),20); checks++;
 assert.equal((await one('select coalesce(sum(xp_amount) filter(where reversed_at is null),0)::int n from pet_xp_events')).n,0); checks++;
 await db.query('select set_my_goal_target($1,30,$2::date+1)',[goal,duoToday]);
 assert.deepEqual((await db.query('select active_from-$3::date as offset_days,target_value::int target from goal_assignments where goal_id=$1 and user_id=$2 order by active_from',[goal,ids[0],duoToday])).rows,[{offset_days:0,target:20},{offset_days:1,target:30}]); checks++;
 await db.query('select set_goal_checkin($1,$2::date,20)',[goal,duoToday]);
-await as(1); assert.equal((await db.query('update goal_checkins set value=0 where user_id=$1 returning id',[ids[0]])).rows.length,0); checks++;
+await as(1); await reject('update goal_checkins set value=0 where user_id=$1 returning id',[ids[0]]);
 await reject('update goal_assignments set target_value=99 where goal_id=$1 and user_id=$2',[goal,ids[0]]);
 await db.query('select set_goal_checkin($1,$2::date,10)',[goal,duoToday]);
 assert.equal((await one('select coalesce(sum(xp_amount) filter(where reversed_at is null),0)::int n from pet_xp_events')).n,55); checks++;
@@ -128,7 +144,7 @@ await reject("insert into challenge_results(challenge_id,outcome,shared_score,ca
 await reject("insert into pet_xp_events(duo_id,source_type,source_id,event_key,xp_amount,local_date) values($1,'perfect_day',$1,'test',10,$2::date)",[duo,duoToday]);
 await reject('delete from goals where id=$1',[goal]);
 await db.query("update goals set status='archived' where id=$1",[goal]);
-assert.equal((await one('select count(*)::int n from goal_checkins')).n,2); checks++;
+assert.equal((await one('select count(*)::int n from goal_checkins where goal_id=$1',[goal])).n,2); checks++;
 await reject('update goal_checkins set value=0 where user_id=$1',[ids[1]]);
 await as(2);
 for(const table of ['goals','goal_assignments','goal_checkins','challenges','pet_xp_events']) { assert.equal((await one(`select count(*)::int n from ${table}`)).n,0); checks++; }
@@ -198,7 +214,7 @@ await db.exec('reset role; set role anon');
 await reject('select * from profiles'); await reject('select get_duo_context()'); await reject("select create_duo(null,'Brownie','UTC')"); await reject('select set_goal_checkin($1,$2::date,1)',[goal,duoToday]);
 await db.exec('reset role');
 await db.exec(readFileSync('supabase/manual/DESTRUCTIVE_TEST_DATA_RESET.sql','utf8'));
-for(const table of ['duos','duo_members','duo_pets','pet_unlocks','pet_room_items','goals','goal_assignments','goal_checkins','goal_status_events','challenges','challenge_results','challenge_result_members','pet_xp_events']) {
+for(const table of ['duos','duo_members','duo_pets','pet_unlocks','pet_room_items','goals','goal_assignments','goal_checkins','goal_status_events','challenges','challenge_results','challenge_result_members','pet_xp_events','foods','food_log_entries','food_day_updates']) {
   assert.equal((await one(`select count(*)::int n from ${table}`)).n,0); checks++;
 }
 assert.equal((await one('select count(*)::int n from auth.users')).n,8); checks++;

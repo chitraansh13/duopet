@@ -59,6 +59,8 @@ function challenge(row: Database["public"]["Tables"]["challenges"]["Row"],scores
 }
 
 export async function loadRuntimeSnapshot(client:Client,duo:AccountDuo,currentUserId:string,today:string):Promise<RuntimeSnapshot>{
+  const goalFinalization=await client.rpc("finalize_due_goal_days");
+  if(goalFinalization.error)throw goalFinalization.error;
   const finalization=await client.rpc("finalize_due_challenges");
   if(finalization.error)throw finalization.error;
   const [goalsResult,assignmentsResult,checkIns,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult]=await Promise.all([

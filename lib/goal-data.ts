@@ -5,6 +5,8 @@ export type GoalScope = "personal" | "shared";
 export type TrackingType = "boolean" | "measured";
 export type MeasurementKind = "number" | "duration";
 export type GoalStatus = "active" | "paused";
+export type TargetDirection = "minimum" | "maximum";
+export type ProgressSource = "manual" | "food_calories" | "food_protein";
 export type GoalIconName = "gym" | "study" | "brain" | "calories" | "protein" | "steps" | "tea" | "water" | "check" | "flame";
 
 export interface GoalTarget {
@@ -14,6 +16,7 @@ export interface GoalTarget {
   nextTargetFrom?: string;
   currentValue: number;
   hasCheckIn?: boolean;
+  finalized?: boolean;
 }
 
 export interface GoalDefinition {
@@ -22,6 +25,8 @@ export interface GoalDefinition {
   icon: GoalIconName;
   scope: GoalScope;
   trackingType: TrackingType;
+  targetDirection?: TargetDirection;
+  progressSource?: ProgressSource;
   measurementKind?: MeasurementKind;
   unit?: string;
   targets: GoalTarget[];
@@ -40,11 +45,13 @@ export function isGoalComplete(goal: GoalDefinition, target: GoalTarget) {
   if (!Number.isFinite(target.currentValue)) return false;
   return goal.trackingType === "boolean"
     ? target.currentValue >= 1
-    : target.target !== undefined && Number.isFinite(target.target) && target.target > 0 && target.currentValue >= target.target;
+    : target.target !== undefined && Number.isFinite(target.target) && target.target > 0 &&
+      (goal.targetDirection === "maximum" ? Boolean(target.finalized) && target.currentValue <= target.target : target.currentValue >= target.target);
 }
 
 export function goalProgress(goal: GoalDefinition, target: GoalTarget) {
   if (goal.trackingType === "boolean") return isGoalComplete(goal, target) ? 100 : 0;
+  if (goal.targetDirection === "maximum") return 0;
   if (!target.target || target.target <= 0) return 0;
   return Number.isFinite(target.currentValue) ? Math.max(0, Math.min(100, Math.round((target.currentValue / target.target) * 100))) : 0;
 }

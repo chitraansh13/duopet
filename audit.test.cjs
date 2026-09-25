@@ -21,6 +21,16 @@ assert.equal(userDailyProgress([{ ...gym, status: 'paused' }], currentUserId), 0
 assert.equal(userDailyProgress([], currentUserId), 0);
 assert.equal(userDailyProgress([study],currentUserId),0);
 assert.equal(userDailyProgress([{...study,targets:study.targets.map(target=>target.userId===currentUserId?{...target,currentValue:4}:target)}],currentUserId),100);
+const maximum={...study,targetDirection:'maximum'};
+assert.equal(isGoalComplete(maximum,{userId:currentUserId,target:1700,currentValue:0}),false);
+assert.equal(isGoalComplete(maximum,{userId:currentUserId,target:1700,currentValue:1700,finalized:true}),true);
+assert.equal(isGoalComplete(maximum,{userId:currentUserId,target:1700,currentValue:1850,finalized:true}),false);
+assert.equal(goalProgress(maximum,{userId:currentUserId,target:1700,currentValue:1200}),0);
+const {nutritionTotals,foodSuggestions,formatNutrition}=require('./lib/food.ts');
+const meals=[{food_id:'wrap',quantity:1.5,calories_snapshot:400,protein_snapshot:25,created_at:'2026-09-25T12:00:00Z'},{food_id:'wrap',quantity:.5,calories_snapshot:400,protein_snapshot:25,created_at:'2026-09-25T08:00:00Z'}];
+assert.deepEqual(nutritionTotals(meals),{calories:800,protein:50});
+assert.equal(formatNutrition(37.50000001,'g'),'37.5 g');
+assert.deepEqual(foodSuggestions(meals,[{id:'wrap',archived_at:null}]).recent.map(food=>food.id),['wrap']);
 const challenge = { ...mockChallenges[0], historyThrough: '2026-09-14' };
 assert.deepEqual(deriveChallengeProgress(challenge, gym, '2026-09-15'), { you: 4, friend: 3, shared: 7 });
 for (const date of ['2026-09-01', '2026-09-21', '2026-09-14']) assert.deepEqual(deriveChallengeProgress(challenge, gym, date), challenge.historicalProgress);
