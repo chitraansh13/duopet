@@ -21,14 +21,21 @@ assert.equal(onboardingStep(profile,{...duo,members:[...duo.members,{...duo.memb
 assert.throws(()=>duoFromJson({duo:{},pet:{},members:[]}));
 console.log('Backend adapters, guards, invite format, timezone and DST tests passed.');
 
-const {confirmationRequest,confirmationIssue,confirmationMessage}=require('./lib/auth/confirmation.ts');
+const {confirmationRequest,confirmationIssue,confirmationMessage,passwordResetMessage}=require('./lib/auth/confirmation.ts');
+const {authRedirectOrigin}=require('./lib/auth/redirect.ts');
+assert.equal(authRedirectOrigin('http://localhost:3000','production'),'https://duopet-pi.vercel.app');
+assert.equal(authRedirectOrigin('http://localhost:3000','development'),'http://localhost:3000');
+assert.equal(authRedirectOrigin('https://duopet-pi.vercel.app/path','production'),'https://duopet-pi.vercel.app');
 assert.deepEqual(confirmationRequest(new URLSearchParams('token_hash=test&type=email')),{kind:'token',tokenHash:'test',type:'email'});
 assert.equal(confirmationRequest(new URLSearchParams('token_hash=test&type=signup')).kind,'token');
 assert.equal(confirmationRequest(new URLSearchParams('code=test')).kind,'code');
-for(const input of ['', 'token_hash=test&type=recovery','token_hash=test&type=magiclink','token_hash=test&code=test&type=email']) assert.equal(confirmationRequest(new URLSearchParams(input)).kind,'error');
+assert.equal(confirmationRequest(new URLSearchParams('token_hash=test&type=recovery')).kind,'recovery');
+assert.equal(confirmationRequest(new URLSearchParams('code=test&flow=recovery')).kind,'recovery-code');
+for(const input of ['', 'token_hash=test&type=magiclink','token_hash=test&code=test&type=email']) assert.equal(confirmationRequest(new URLSearchParams(input)).kind,'error');
 assert.equal(confirmationRequest(new URLSearchParams('error_code=otp_expired')).issue,'expired');
 assert.equal(confirmationIssue('bad_code_verifier'),'pkce');
 assert.match(confirmationMessage('expired'),/fresh confirmation email/);
+assert.match(passwordResetMessage('expired'),/password reset link/);
 console.log('One-member waiting, two-member ready, and confirmation flow regression checks passed.');
 
 const {canonicalValue,displayValue,goalStateFromRows,mergeCheckIn}=require('./lib/repositories/goal-adapters.ts');

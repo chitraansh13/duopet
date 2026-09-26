@@ -10,6 +10,7 @@ import { GoalRepositoryError, createGoal, loadGoalState, saveCheckIn, setGoalSta
 import { addDays } from "@/lib/date";
 import { mergeCheckIn, type CheckInRow } from "@/lib/repositories/goal-adapters";
 import { redactPartnerGoals } from "@/lib/sharing";
+import { reportIssue } from "@/lib/diagnostics";
 
 interface GoalContextValue {
   goals: GoalDefinition[];
@@ -40,14 +41,17 @@ export function GoalProvider({ children, initialState }: { children: React.React
   sharingRef.current = partnerSharing;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const [loadError, setLoadError] = useState(false);
   const [notice,setNotice]=useState<string>();
   const mutationLock=useRef(false);
   const noticeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const checkInQueue = useRef(new Map<string, Promise<boolean>>());
+  const definitionIds = useRef(new Set(state.definitions.map((goal) => goal.id)));
+  definitionIds.current = new Set(state.definitions.map((goal) => goal.id));
 
   const refresh = useCallback(async (date = duoDateKey(duo.timezone)) => {
-    try { const next=await loadGoalState(client, duo.id, date);setState(redactPartnerGoals(next,partnerUserId,sharingRef.current)); setError(undefined); }
-    catch (cause) { setError(message(cause)); }
+    try { const next=await loadGoalState(client, duo.id, date);setState(redactPartnerGoals(next,partnerUserId,sharingRef.current)); setLoadError(false); setError(undefined); }
+    catch (cause) { reportIssue("goals.refresh",cause); setLoadError(true); }
   }, [client, duo.id, duo.timezone,partnerUserId]);
   useEffect(() => {
     setState((current) => redactPartnerGoals(current,partnerUserId,partnerSharing));
@@ -67,6 +71,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
 
   useEffect(() => {
     const relevantUsers = new Set([profile.id, partnerUserId]);
+    let connected = false;
     const channel = client.channel(`duo-goals:${duo.id}:${state.date}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_checkins", filter: `local_date=eq.${state.date}` }, (payload) => {
         const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as Partial<CheckInRow>;
@@ -76,11 +81,13 @@ export function GoalProvider({ children, initialState }: { children: React.React
       .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `duo_id=eq.${duo.id}` }, () => { void refresh(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_assignments" }, (payload) => {
         const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as { goal_id?: string };
-        if (row.goal_id && state.definitions.some((goal) => goal.id === row.goal_id)) void refresh();
+        if (row.goal_id && definitionIds.current.has(row.goal_id)) void refresh();
       })
-      .subscribe();
-    return () => { void client.removeChannel(channel); };
-  }, [client, duo.id, partnerUserId, profile.id, refresh, state.date, state.definitions]);
+      .subscribe((status) => { if (status === "SUBSCRIBED") { if (connected) void refresh(); connected = true; } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reportIssue("realtime.goals",{code:status}); });
+    const online = () => { void refresh(); };
+    window.addEventListener("online",online);
+    return () => { window.removeEventListener("online",online); void client.removeChannel(channel); };
+  }, [client, duo.id, partnerUserId, profile.id, refresh, state.date]);
 
   const goals = useMemo(() => selectGoals(redactPartnerGoals(state,partnerUserId,partnerSharing)), [state,partnerUserId,partnerSharing]);
   useEffect(()=>()=>{if(noticeTimer.current)clearTimeout(noticeTimer.current);},[]);
@@ -136,7 +143,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
       return result;
     },
   };
-  return <GoalContext.Provider value={value}>{children}{error && <div role="alert" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[min(90vw,28rem)] -translate-x-1/2 rounded-2xl bg-ink px-4 py-3 text-center text-sm font-semibold text-surface shadow-card xl:bottom-8">{error}</div>}{notice&&<div role="status" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] -translate-x-1/2 rounded-full bg-ink px-4 py-3 text-sm font-bold text-surface shadow-card xl:bottom-8">✓ {notice}</div>}</GoalContext.Provider>;
+  return <GoalContext.Provider value={value}>{children}{loadError&&<div role="alert" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[91] flex w-[min(92vw,28rem)] -translate-x-1/2 items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-surface shadow-card xl:bottom-8"><span className="flex-1">Couldn't load the latest goals right now.</span><button type="button" onClick={()=>{void refresh();}} className="min-h-11 shrink-0 rounded-xl bg-surface px-3 font-bold text-ink">Try again</button></div>}{error && <div role="alert" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] w-[min(90vw,28rem)] -translate-x-1/2 rounded-2xl bg-ink px-4 py-3 text-center text-sm font-semibold text-surface shadow-card xl:bottom-8">{error}</div>}{notice&&<div role="status" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[90] -translate-x-1/2 rounded-full bg-ink px-4 py-3 text-sm font-bold text-surface shadow-card xl:bottom-8">✓ {notice}</div>}</GoalContext.Provider>;
 }
 
 export function useGoals() {

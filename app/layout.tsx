@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "DuoPet",
   description: "A shared habit tracker for two.",
+  applicationName: "DuoPet",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "DuoPet", statusBarStyle: "default" },
   icons: { icon: "/brownie-icon.svg", apple: "/apple-touch-icon.png" },
 };
 

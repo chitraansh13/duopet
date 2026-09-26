@@ -1,6 +1,24 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const ts=require('typescript');
 const read=(path)=>fs.readFileSync(path,'utf8');
+const manifestExports={};
+new Function('exports',ts.transpileModule(read('app/manifest.ts'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(manifestExports);
+const manifest=manifestExports.default();
+assert.equal(manifest.name,'DuoPet');
+assert.equal(manifest.display,'standalone');
+assert.equal(manifest.start_url,'/');
+for(const size of [192,512]){
+  assert.ok(manifest.icons.some((icon)=>icon.src===`/icon-${size}.png`&&icon.sizes===`${size}x${size}`));
+  const png=fs.readFileSync(`public/icon-${size}.png`);
+  assert.equal(png.readUInt32BE(16),size);
+  assert.equal(png.readUInt32BE(20),size);
+}
+assert.equal(fs.readFileSync('public/apple-touch-icon.png').readUInt32BE(16),180);
+assert.match(read('app/layout.tsx'),/apple: "\/apple-touch-icon\.png"/);
+const proxy=read('proxy.ts');
+for(const publicPath of ['login','signup','reset-password','auth/confirm','manifest.webmanifest','apple-touch-icon.png','icon-192.png','icon-512.png'])
+  assert.ok(proxy.includes(publicPath),`Public route/asset should bypass session refresh: ${publicPath}`);
 
 for(const path of ['app/(app)/page.tsx','components/challenges/ChallengeProvider.tsx','components/challenges/ChallengesDashboard.tsx','components/progress/ProgressDashboard.tsx','components/pet/PetDashboard.tsx']){
   const source=read(path);

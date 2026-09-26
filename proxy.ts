@@ -20,4 +20,5 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|brownie-icon.svg).*)"] };
+// Public auth screens and install assets do not need a network-dependent session refresh.
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|brownie-icon.svg|apple-touch-icon.png|icon-192.png|icon-512.png|manifest.webmanifest|login(?:/|$)|signup(?:/|$)|reset-password(?:/|$)|auth/confirm(?:/|$)).*)"] };

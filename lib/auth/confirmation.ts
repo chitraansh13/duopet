@@ -9,10 +9,16 @@ export function confirmationMessage(issue: string) {
   if (issue === "unavailable") return "We couldn’t reach email confirmation. Please try again, or request a fresh confirmation email.";
   return "That confirmation link is invalid, expired, or already used. If your email is already confirmed, sign in below. Otherwise request a fresh confirmation email.";
 }
+export function passwordResetMessage(issue: string) {
+  if (issue === "pkce") return "This reset link needs the browser where you requested it. Return to sign in and request a new link if needed.";
+  if (issue === "unavailable") return "We couldn’t verify your reset link right now. Please try again shortly.";
+  return "That password reset link is invalid, expired, or already used. Return to sign in and request a new one.";
+}
 export function confirmationRequest(params: URLSearchParams) {
   if (params.has("error") || params.has("error_code")) return { kind: "error", issue: confirmationIssue(params.get("error_code") ?? undefined) } as const;
   const tokenHash = params.get("token_hash"), code = params.get("code"), type = params.get("type");
+  if (tokenHash && !code && type === "recovery") return { kind: "recovery", tokenHash } as const;
   if (tokenHash && !code && (type === "email" || type === "signup")) return { kind: "token", tokenHash, type } as const;
-  if (code && !tokenHash) return { kind: "code", code } as const;
+  if (code && !tokenHash) return params.get("flow") === "recovery" ? { kind: "recovery-code", code } as const : { kind: "code", code } as const;
   return { kind: "error", issue: "confirmation" } as const;
 }

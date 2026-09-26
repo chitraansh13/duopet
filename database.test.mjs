@@ -24,6 +24,10 @@ for (const file of readdirSync('supabase/migrations').sort()) {
   try { await db.exec(readFileSync('supabase/migrations/'+file,'utf8')); }
   catch(error) { console.error(file, error.message); process.exitCode=1; await db.close(); process.exit(1); }
 }
+const publicTables=(await db.query("select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relname<>'schema_migrations'")).rows;
+for(const table of publicTables) assert.equal(table.relrowsecurity,true,`${table.relname} needs RLS`);
+const definers=(await db.query("select p.proname,p.proconfig from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.prosecdef")).rows;
+for(const fn of definers) assert.ok(fn.proconfig?.some((setting)=>setting.startsWith('search_path=')),`${fn.proname} needs a pinned search_path`);
 assert.equal((await db.query('select count(*)::int n from profiles where id=$1',[missingId])).rows[0].n,1); bootstrapChecks++;
 assert.equal((await db.query('select display_name from profiles where id=$1',[preservedId])).rows[0].display_name,'Keep this name'); bootstrapChecks++;
 const repair = readFileSync('supabase/migrations/202609200001_repair_profile_bootstrap.sql','utf8');

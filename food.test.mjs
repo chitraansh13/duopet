@@ -104,7 +104,11 @@ assert.equal((await one("select count(*)::int n from pet_xp_events where source_
 await db.exec('reset role');
 await db.exec("create or replace function private.duo_today(target_duo uuid) returns date language sql stable security definer set search_path='' as $$select current_date+1$$");
 await as(0);
-assert.equal((await one('select finalize_due_goal_days() n')).n,2);
+await reject('select private.run_scheduled_finalization()');
+await db.exec('reset role');
+assert.equal((await one('select private.run_scheduled_finalization() n')).n,2);
+assert.equal((await one('select private.run_scheduled_finalization() n')).n,0);
+await as(0);
 assert.equal((await one('select finalize_due_goal_days() n')).n,0);
 assert.equal((await one('select completed from goal_checkins where goal_id=$1 and user_id=$2',[calorieId,ids[0]])).completed,false);
 assert.equal((await one('select completed from goal_checkins where goal_id=$1 and user_id=$2',[calorieId,ids[1]])).completed,true);

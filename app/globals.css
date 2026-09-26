@@ -175,6 +175,11 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* iPhone Safari zooms focused form fields below 16px, obscuring bottom sheets. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
 @keyframes heart-pop {
   0% { opacity: 0; transform: translateY(4px) scale(.5) rotate(-12deg); }
   35% { opacity: 1; transform: translateY(-4px) scale(1.1) rotate(8deg); }

@@ -1,8 +1,8 @@
 # DuoPet
 
-Next.js App Router app with Supabase authentication, pairing, and persisted daily goals. Read [AUDIT.md](AUDIT.md), [Backend Phase 1](docs/BACKEND_PHASE_1.md), and [Backend Phase 2](docs/BACKEND_PHASE_2.md) for architecture, permissions, and deferred work.
+Next.js App Router app with Supabase authentication, pairing, goals, food, progress, and Brownie state. Read [AUDIT.md](AUDIT.md), [Backend Phase 3](docs/BACKEND_PHASE_3.md), [Food and Goal Semantics](docs/FOOD_AND_GOAL_SEMANTICS.md), and [Phase 4 Production Hardening](docs/PHASE_4_PRODUCTION_HARDENING.md) for architecture and operations.
 
-Real: email/password authentication, profiles, duo creation/pairing, goal definitions and assignments, Today check-ins, target snapshots, pause/archive behavior, realtime duo updates, Brownie XP, level calculation, and historical Progress summaries. Production never substitutes demo accomplishments when backend data is empty. Challenge creation, task mini-history, and pet customization persistence remain deferred.
+Production data comes from Supabase; demo fixtures require explicit `DUOPET_DATA_MODE=demo`. Challenges remain stored but are not in the primary navigation.
 
 ## Set up a new Supabase project
 
@@ -45,7 +45,9 @@ Real: email/password authentication, profiles, duo creation/pairing, goal defini
      <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">Confirm your DuoPet account</a>
      ```
 
-   - Configure SMTP when testing with recipients outside the project's permitted built-in email recipients. Supabase's built-in email service has recipient/rate limits; consult your project's Auth email settings.
+   - For deployed use, set Site URL to `https://duopet-pi.vercel.app` and allow both `https://duopet-pi.vercel.app/auth/confirm` and `https://duopet-pi.vercel.app/auth/confirm?flow=recovery`. Keep localhost URLs only for local development.
+   - Keep **Confirm email** enabled. For the **Reset password** template, either retain Supabase's `{{ .ConfirmationURL }}` link (same-browser PKCE) or use `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&flow=recovery">Reset your DuoPet password</a>` (cross-browser token hash).
+   - Configure custom SMTP for reliable production signup/recovery delivery. Store SMTP credentials only in Supabase Auth settings, never in this repository or a `NEXT_PUBLIC_` variable.
 
 6. Run locally:
 
@@ -88,6 +90,12 @@ The script invokes `npx supabase gen types typescript --linked --schema public` 
 With Docker installed, use `npx supabase start`, then `npx supabase db reset` **only for the disposable local database**. Reset destroys local data. Use the local URL/public anon key from `npx supabase status` in `.env.local`. Use local mail capture for confirmation emails. Hosted setup does not require this workflow.
 
 Official references: [Supabase SSR for Next.js](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs), [repository migrations](https://supabase.com/docs/guides/local-development/database-migrations), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## Production hardening
+
+Set Vercel `NEXT_PUBLIC_SITE_URL=https://duopet-pi.vercel.app` and `DUOPET_DATA_MODE=production`. The production auth redirect helper pins email links to this canonical origin even if that env setting drifts. The Next.js manifest uses the existing Brownie PNG icons; no service worker or offline writes are installed.
+
+Before applying `202609260001_scheduled_daily_finalization.sql`, enable Supabase **Integrations → Cron (`pg_cron`)**. The migration then schedules the existing goal-day and challenge finalizers hourly. If Cron was unavailable when the migration ran, see [Phase 4 operations](docs/PHASE_4_PRODUCTION_HARDENING.md#scheduled-finalization) for the idempotent schedule command and verification query. Authenticated lazy finalization remains a fallback.
 
 ## Confirmation links and onboarding states
 

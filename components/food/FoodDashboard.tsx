@@ -8,12 +8,13 @@ import { useGoals } from "@/components/goals/GoalProvider";
 import { useSession } from "@/components/SessionProvider";
 import { duoDateKey } from "@/lib/date";
 import { formatNutrition, nutritionTotals, type Food, type FoodLogEntry } from "@/lib/food";
-import { archiveFood, deleteFoodLog, loadFoodDay, loadFoods, saveFood, saveFoodLog } from "@/lib/repositories/food";
+import { FoodRepositoryError, archiveFood, deleteFoodLog, loadFoodDay, loadFoods, saveFood, saveFoodLog } from "@/lib/repositories/food";
+import { reportIssue } from "@/lib/diagnostics";
 import { createClient } from "@/lib/supabase/client";
 import { getGoalTarget } from "@/lib/goal-data";
 import { FoodHistoryPanel } from "./FoodHistoryPanel";
 
-function errorMessage(cause: unknown) { return cause instanceof Error ? cause.message : "That change couldn’t be saved. Please retry."; }
+function errorMessage(cause: unknown) { return cause instanceof FoodRepositoryError ? cause.message : "Couldn't load this right now. Please try again."; }
 function amount(food: Food) { return `${formatNutrition(Number(food.calories_per_serving), "kcal")} · ${formatNutrition(Number(food.protein_grams_per_serving), "g")} protein`; }
 
 export function FoodDashboard() {
@@ -56,23 +57,27 @@ export function FoodDashboard() {
     if (day.status === "rejected") throw day.reason;
     if (foods.status === "rejected") throw foods.reason;
   }, [client, duo.id, profile.id, date]);
-  useEffect(() => { let live = true; void refresh().catch((cause) => { if (live) { setLoading(false); setError(errorMessage(cause)); } }); return () => { live = false; }; }, [refresh]);
+  const refreshWithFeedback = useCallback(async () => { try { await refresh(); setError(undefined); } catch (cause) { reportIssue("food.refresh",cause); setError(errorMessage(cause)); } }, [refresh]);
+  useEffect(() => { void refreshWithFeedback(); }, [refreshWithFeedback]);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => { void refresh(); void refreshGoals(); }, 120); };
+    const schedule = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => { void refreshWithFeedback(); void refreshGoals(); }, 120); };
+    let connected = false;
     const channel = client.channel(`duo-food:${duo.id}:${profile.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "food_log_entries", filter: `user_id=eq.${profile.id}` }, schedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "foods", filter: `duo_id=eq.${duo.id}` }, schedule)
-      .subscribe();
-    return () => { if (timer) clearTimeout(timer); void client.removeChannel(channel); };
-  }, [client, duo.id, profile.id, refresh, refreshGoals]);
+      .subscribe((status) => { if (status === "SUBSCRIBED") { if (connected) schedule(); connected = true; } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reportIssue("realtime.food",{code:status}); });
+    const online = () => schedule();
+    window.addEventListener("online",online);
+    return () => { if (timer) clearTimeout(timer); window.removeEventListener("online",online); void client.removeChannel(channel); };
+  }, [client, duo.id, profile.id, refreshWithFeedback, refreshGoals]);
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
   function saved(value: string) { setNotice(value); if (noticeTimer.current) clearTimeout(noticeTimer.current); noticeTimer.current = setTimeout(() => setNotice(undefined), 1800); }
   async function mutate(work: () => Promise<void>, success: string) {
     if (lock.current) return;
     lock.current = true; setPending(true); setError(undefined);
-    try { await work(); saved(success); await refreshGoals(); try { await refresh(); } catch { setError("Saved, but the latest view couldn’t refresh. Please reload the page."); } }
-    catch (cause) { setError(errorMessage(cause)); }
+    try { await work(); saved(success); await refreshGoals(); try { await refresh(); } catch (cause) { reportIssue("food.after_save_refresh",cause); setError("Saved, but the latest view couldn’t refresh. Try again when connected."); } }
+    catch (cause) { reportIssue("food.mutation",cause); setError(errorMessage(cause)); }
     finally { lock.current = false; setPending(false); }
   }
   function chooseFood(food: Food, entry?: FoodLogEntry) { setSelected(food); setEditingEntry(entry ?? null); setQuantity(entry ? String(entry.quantity) : "1"); setNewFood(false); setEditingFood(null); setError(undefined); }
@@ -131,7 +136,7 @@ export function FoodDashboard() {
         </li>)}</ol> : <p className="py-5 text-sm text-muted">Nothing logged today. Find a saved food or add your first one.</p>}
     </section>
     {newFood && <div className="glass-overlay fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-6" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) setNewFood(false); }}>
-      <div ref={foodFormRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="food-form-title" className="glass-panel max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] p-5 sm:rounded-[28px]">
+      <div ref={foodFormRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="food-form-title" className="glass-panel max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-[28px] sm:pb-5">
         <div className="flex items-center justify-between"><h2 id="food-form-title" className="text-xl font-bold">{editingFood ? "Edit saved food" : "Add new food"}</h2><button type="button" disabled={pending} onClick={() => setNewFood(false)} aria-label="Close food form" className="grid size-10 place-items-center rounded-full bg-subtle text-muted disabled:opacity-50"><X className="size-4" /></button></div>
         <form className="mt-4 grid gap-3" onSubmit={(event) => { event.preventDefault(); void mutate(async () => { const savedFood = await saveFood(client,duo.id,profile.id,{name,serving,calories:Number(calories),protein:Number(protein)},editingFood??undefined); setCatalog((current) => [...current.filter((food) => food.id !== savedFood.id), savedFood].sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))); setQuery(""); setNewFood(false); }, "Food saved"); }}>
           <label className="text-xs font-semibold text-muted">Food name<input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-xl border border-line bg-subtle px-3 py-3 text-sm text-ink" /></label>
