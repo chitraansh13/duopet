@@ -11,17 +11,18 @@ import { saveEncouragementAction, saveProfileAction } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { savePetAccessory, savePetRoomItem } from "@/lib/repositories/pet";
 import type { DogAccessory } from "@/lib/pet-data";
-import { loadSharing, privateSharing, saveSharing, type Sharing, type SharingKey } from "@/lib/repositories/sharing";
+import { defaultSharing, loadSharing, privateSharing, saveSharing, type Sharing, type SharingKey } from "@/lib/repositories/sharing";
 import { clearPrivateRuntime } from "@/lib/sharing";
 
 function useSessionState(account: Account, initialRuntime: RuntimeSnapshot) {
   const [profile, updateProfile] = useState<UserProfile>(account.profile);
   const [encouragement, updateEncouragement] = useState(account.profile.brownieEncouragement);
   const [runtime, setRuntime] = useState(initialRuntime);
-  const [ownSharing, setOwnSharing] = useState<Sharing>(privateSharing);
-  const [partnerSharing, setPartnerSharing] = useState<Sharing>(privateSharing);
-  const [sharingLoaded, setSharingLoaded] = useState(false);
+  const [ownSharing, setOwnSharing] = useState<Sharing>(initialRuntime.isDemoMode ? defaultSharing : privateSharing);
+  const [partnerSharing, setPartnerSharing] = useState<Sharing>(initialRuntime.isDemoMode ? defaultSharing : privateSharing);
+  const [sharingLoaded, setSharingLoaded] = useState(initialRuntime.isDemoMode);
   const [sharingSaving, setSharingSaving] = useState<SharingKey | null>(null);
+  const sharingSavingRef = useRef(false);
   const privacyEpoch = useRef(0);
   const partnerId = account.duo.members.find((member) => member.userId !== account.profile.id)?.userId;
   const [saving, setSaving] = useState(false);
@@ -80,11 +81,12 @@ function useSessionState(account: Account, initialRuntime: RuntimeSnapshot) {
     return () => { live = false; void client.removeChannel(channel); };
   }, [account.profile.id, account.duo.id, partnerId, refreshRuntime, runtime.isDemoMode]);
   async function setSharing(key: SharingKey, next: boolean) {
-    if (sharingSaving) return;
+    if (sharingSavingRef.current) return;
+    sharingSavingRef.current = true;
     setSharingSaving(key); setError(undefined);
     try { const row = await saveSharing(createClient(), account.profile.id, key, next); setOwnSharing(row); saved("Sharing updated"); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Sharing setting couldn’t be saved."); }
-    finally { setSharingSaving(null); }
+    finally { sharingSavingRef.current = false; setSharingSaving(null); }
   }
   async function setAccessory(id:DogAccessory){
     if(savingRef.current)return false;

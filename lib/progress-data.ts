@@ -41,6 +41,7 @@ export interface HabitPerformanceData {
   id: string;
   name: string;
   icon: GoalIconName;
+  friendPrivate?: boolean;
   rates: Record<ProgressPeriod, { overall: number; you: number; friend: number }>;
 }
 

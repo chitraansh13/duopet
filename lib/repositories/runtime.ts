@@ -59,11 +59,12 @@ function challenge(row: Database["public"]["Tables"]["challenges"]["Row"],scores
 }
 
 export async function loadRuntimeSnapshot(client:Client,duo:AccountDuo,currentUserId:string,today:string):Promise<RuntimeSnapshot>{
+  const partnerId=duo.members.find((member)=>member.userId!==currentUserId)?.userId;
   const goalFinalization=await client.rpc("finalize_due_goal_days");
   if(goalFinalization.error)throw goalFinalization.error;
   const finalization=await client.rpc("finalize_due_challenges");
   if(finalization.error)throw finalization.error;
-  const [goalsResult,assignmentsResult,checkIns,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult]=await Promise.all([
+  const [goalsResult,assignmentsResult,checkIns,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult,sharingResult]=await Promise.all([
     client.from("goals").select("*").eq("duo_id",duo.id),
     client.from("goal_assignments").select("*"),
     loadRecentCheckIns(client,today),
@@ -76,8 +77,9 @@ export async function loadRuntimeSnapshot(client:Client,duo:AccountDuo,currentUs
     client.rpc("get_challenge_scores",{p_duo_id:duo.id}),
     client.from("goal_status_events").select("*"),
     client.rpc("get_pet_stats",{p_duo_id:duo.id}),
+    client.from("sharing_preferences").select("share_nutrition_totals").eq("user_id",partnerId??currentUserId).maybeSingle(),
   ]);
-  const error=[goalsResult,assignmentsResult,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult].find((result)=>result.error)?.error;
+  const error=[goalsResult,assignmentsResult,perfectResult,activityResult,petResult,roomResult,unlockResult,challengeResult,scoresResult,statusResult,petStatsResult,sharingResult].find((result)=>result.error)?.error;
   if(error) throw error;
   const stats=petStatsResult.data?.[0];
   if(!stats)throw new Error("Brownie’s stats couldn’t be loaded.");
@@ -85,5 +87,5 @@ export async function loadRuntimeSnapshot(client:Client,duo:AccountDuo,currentUs
   const results=challengeIds.length?await client.from("challenge_results").select("*").in("challenge_id",challengeIds):{data:[],error:null};
   if(results.error)throw results.error;
   const goals=goalsResult.data??[],events=[...new Map([...(perfectResult.data??[]),...(activityResult.data??[])].map((event)=>[event.id,event])).values()],assignments=assignmentsResult.data??[];
-  return { isDemoMode:false,companion:buildCompanion(events,goals,petResult.data,(roomResult.data??[]).map((row)=>row.item_id),(unlockResult.data??[]).filter((row)=>row.unlock_origin!=="legacy").map((row)=>row.item_id),stats,currentUserId,today,duo.timezone),progress:buildProgress(goals,assignments,checkIns,events,statusResult.data??[],stats,duo,currentUserId,today),challenges:(challengeResult.data??[]).filter((row)=>row.status!=="cancelled").map((row)=>challenge(row,(scoresResult.data??[]).filter((score)=>score.challenge_id===row.id),results.data?.find((result)=>result.challenge_id===row.id),currentUserId,today,checkIns,goals.find((goal)=>goal.id===row.linked_goal_id))) };
+  return { isDemoMode:false,companion:buildCompanion(events,goals,petResult.data,(roomResult.data??[]).map((row)=>row.item_id),(unlockResult.data??[]).filter((row)=>row.unlock_origin!=="legacy").map((row)=>row.item_id),stats,currentUserId,today,duo.timezone),progress:buildProgress(goals,assignments,checkIns,events,statusResult.data??[],stats,duo,currentUserId,today,sharingResult.data?.share_nutrition_totals===true),challenges:(challengeResult.data??[]).filter((row)=>row.status!=="cancelled").map((row)=>challenge(row,(scoresResult.data??[]).filter((score)=>score.challenge_id===row.id),results.data?.find((result)=>result.challenge_id===row.id),currentUserId,today,checkIns,goals.find((goal)=>goal.id===row.linked_goal_id))) };
 }

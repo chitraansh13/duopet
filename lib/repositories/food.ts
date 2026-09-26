@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Food } from "@/lib/food";
 import type { FoodLogEntry } from "@/lib/food";
-import { addDays } from "@/lib/date";
 
 type Client = SupabaseClient<Database>;
 export class FoodRepositoryError extends Error {}
@@ -22,16 +21,22 @@ export async function loadFoodTotals(client: Client, userId: string, from: strin
 }
 
 export async function loadFoodDay(client: Client, duoId: string, userId: string, date: string) {
-  const [today, history] = await Promise.all([
-    client.from("food_log_entries").select("*").eq("duo_id", duoId).eq("user_id", userId).eq("local_date", date).order("created_at", { ascending: false }),
-    client.from("food_log_entries").select("*").eq("duo_id", duoId).eq("user_id", userId)
-      .gte("local_date", addDays(date,-29)).lte("local_date",date).order("created_at", { ascending: false }).limit(200),
-  ]);
-  if (today.error || history.error) throw new FoodRepositoryError("Your food log couldn’t be loaded. Please retry.");
-  const ids = [...new Set((history.data ?? []).map((entry) => entry.food_id))];
-  const foods = ids.length ? await client.from("foods").select("*").eq("duo_id", duoId).is("archived_at", null).in("id", ids) : { data: [] as Food[], error: null };
-  if (foods.error) throw new FoodRepositoryError("Your saved foods couldn’t be loaded. Please retry.");
-  return { today: today.data ?? [], history: history.data ?? [], suggestions: foods.data ?? [] };
+  const { data, error } = await client.from("food_log_entries").select("*")
+    .eq("duo_id", duoId).eq("user_id", userId).eq("local_date", date).order("created_at", { ascending: false });
+  if (error) throw new FoodRepositoryError("Your food log couldn’t be loaded. Please retry.");
+  return data ?? [];
+}
+
+export async function loadFoods(client: Client, duoId: string): Promise<Food[]> {
+  const foods: Food[] = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await client.from("foods").select("*").eq("duo_id", duoId)
+      .is("archived_at", null).order("name").order("id").range(offset, offset + pageSize - 1);
+    if (error) throw new FoodRepositoryError("Your saved foods couldn’t be loaded. Please retry.");
+    foods.push(...(data ?? []));
+    if (!data || data.length < pageSize) return foods;
+  }
 }
 
 export async function searchFoods(client: Client, duoId: string, query: string): Promise<Food[]> {
@@ -56,8 +61,9 @@ export async function saveFood(client: Client, duoId: string, userId: string, va
 }
 
 export async function archiveFood(client: Client, food: Food, userId: string) {
-  const { error } = await client.from("foods").update({ archived_at: new Date().toISOString() }).eq("id", food.id).eq("created_by", userId);
-  if (error) throw new FoodRepositoryError("This food couldn’t be removed. Please retry.");
+  const { data, error } = await client.from("foods").update({ archived_at: new Date().toISOString() })
+    .eq("id", food.id).eq("created_by", userId).is("archived_at", null).select("id").maybeSingle();
+  if (error || !data) throw new FoodRepositoryError("This food couldn’t be removed. Please retry.");
 }
 
 export async function saveFoodLog(client: Client, foodId: string, quantity: number, entryId?: string) {

@@ -62,9 +62,9 @@ export function ProfileDashboard() {
           </SettingsSection>
 
           <SettingsSection eyebrow="Privacy" title="Sharing with your duo" icon={UsersRound}>
-            <ToggleRow checked={ownSharing.share_personal_goals} onChange={(value)=>{void setSharing("share_personal_goals",value);}} disabled={!sharingLoaded||Boolean(sharingSaving)} title="Share personal goals" subtitle="Allow your partner to see your personal goals and progress." />
-            <ToggleRow checked={ownSharing.share_food_diary} onChange={(value)=>{void setSharing("share_food_diary",value);}} disabled={!sharingLoaded||Boolean(sharingSaving)} title="Share food diary" subtitle="Allow your partner to see foods you log and your food history." />
-            <ToggleRow checked={ownSharing.share_nutrition_totals} onChange={(value)=>{void setSharing("share_nutrition_totals",value);}} disabled={!sharingLoaded||Boolean(sharingSaving)} title="Share nutrition totals" subtitle="Allow your partner to see daily calorie and protein totals." />
+            <ToggleRow checked={ownSharing.share_personal_goals} onChange={(value)=>{void setSharing("share_personal_goals",value);}} disabled={runtime.isDemoMode||!sharingLoaded||Boolean(sharingSaving)} title="Share personal goals" subtitle="Allow your partner to see your personal goals and progress." />
+            <ToggleRow checked={ownSharing.share_food_diary} onChange={(value)=>{void setSharing("share_food_diary",value);}} disabled={runtime.isDemoMode||!sharingLoaded||Boolean(sharingSaving)} title="Share food diary" subtitle="Allow your partner to see foods you log and your food history." />
+            <ToggleRow checked={ownSharing.share_nutrition_totals} onChange={(value)=>{void setSharing("share_nutrition_totals",value);}} disabled={runtime.isDemoMode||!sharingLoaded||Boolean(sharingSaving)} title="Share nutrition totals" subtitle="Allow your partner to see daily calorie and protein totals." />
           </SettingsSection>
 
           <SettingsSection eyebrow="Quick access" title="Goals" icon={Goal}><SettingsLink href="/tasks/manage" icon={Goal} title="Manage Goals" subtitle="Add, edit, pause, or remove goals" /></SettingsSection>

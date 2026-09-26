@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 export type Sharing = Pick<Database["public"]["Tables"]["sharing_preferences"]["Row"],
   "share_personal_goals" | "share_food_diary" | "share_nutrition_totals">;
 export const privateSharing: Sharing = { share_personal_goals: false, share_food_diary: false, share_nutrition_totals: false };
+export const defaultSharing: Sharing = { share_personal_goals: true, share_food_diary: true, share_nutrition_totals: true };
 export type SharingKey = keyof Sharing;
 type Client = SupabaseClient<Database>;
 

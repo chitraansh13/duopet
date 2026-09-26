@@ -15,7 +15,7 @@ const icons=new Set<GoalIconName>(["gym","study","brain","calories","protein","s
 function label(date:string,options:Intl.DateTimeFormatOptions){return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US",{...options,timeZone:"UTC"});}
 function percentage(done:number,total:number){return total?Math.round(done/total*100):0;}
 
-export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], checkIns: CheckInRow[], events: XpRow[], statusEvents:StatusRow[], stats:PetStats, duo: AccountDuo, currentId: string, today: string): ProgressDataset {
+export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], checkIns: CheckInRow[], events: XpRow[], statusEvents:StatusRow[], stats:PetStats, duo: AccountDuo, currentId: string, today: string, partnerNutritionVisible = true): ProgressDataset {
   const partnerId = duo.members.find((member) => member.userId !== currentId)?.userId;
   const historyRows = checkIns.filter((row) => Number(row.value) > 0 || Boolean(row.completed));
   const hasHistory = historyRows.length > 0;
@@ -31,7 +31,8 @@ export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], ch
   const completed = new Set(checkIns.filter((row) => row.completed).map((row) => `${row.local_date}:${row.goal_id}:${row.user_id}`));
   const eligible = (date: string, userId?: string, scope?: string) => assignments.filter((assignment) => {
     const goal = byGoal.get(assignment.goal_id);
-    return goal && (!userId || assignment.user_id === userId) && (!scope || goal.scope === scope)
+    return goal && (partnerNutritionVisible || assignment.user_id !== partnerId || goal.progress_source === "manual")
+      && (!userId || assignment.user_id === userId) && (!scope || goal.scope === scope)
       && assignment.active_from <= date && (!assignment.active_until || date < assignment.active_until)
       && duoDateKey(duo.timezone,new Date(goal.created_at)) <= date && activeOn(goal,date);
   });
@@ -48,7 +49,7 @@ export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], ch
     : Array.from({length:periods[period]},(_,index)=>addDays(today,index-periods[period]+1));
   const day = (date: string) => {
     if(date>today)return {date,label:label(date,{month:"short",day:"numeric"}),you:0,friend:0,sharedGoalsCompleted:0,sharedGoalsTotal:0,applicable:false,future:true,perfect:false};
-    const shared = goals.filter((goal) => goal.scope === "shared" && eligible(date,undefined,"shared").some((row) => row.goal_id === goal.id));
+    const shared = goals.filter((goal) => goal.scope === "shared" && eligible(date,undefined,"shared").filter((row) => row.goal_id === goal.id).length >= 2);
     const sharedGoalsCompleted = shared.filter((goal) => {
       const rows = eligible(date).filter((row) => row.goal_id === goal.id);
       return rows.length >= 2 && rows.every((row) => completed.has(`${date}:${row.goal_id}:${row.user_id}`));
@@ -73,6 +74,7 @@ export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], ch
   };
   const habits = goals.filter((goal) => historyRows.some((row) => row.goal_id === goal.id)).map((goal) => ({
     id:goal.id,name:goal.name,icon:icons.has(goal.icon_key as GoalIconName) ? goal.icon_key as GoalIconName : "check",
+    friendPrivate:!partnerNutritionVisible&&goal.progress_source!=="manual",
     rates:Object.fromEntries(Object.entries(periods).map(([period]) => {
       const own=rateCounts(goal.id,currentId,period as ProgressPeriod),partner=rateCounts(goal.id,partnerId,period as ProgressPeriod);
       const you=percentage(own.done,own.total),friend=percentage(partner.done,partner.total);

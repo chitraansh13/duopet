@@ -60,4 +60,14 @@ const sameDayArchive=buildProgress([{...goal,status:'archived',archived_at:'2026
   [...statuses,{goal_id:'study',effective_date:'2026-09-22',status:'archived'}],stats,duo,'a',today);
 assert.equal(sameDayArchive.summaries.week.you,50);
 assert.equal(sameDayArchive.heatmap.find(day=>day.date==='2026-09-22').applicable,true);
+const foodGoal={...goal,id:'food',name:'Protein',progress_source:'food_protein'};
+const foodAssignments=[{goal_id:'food',user_id:'a',active_from:'2026-09-21',active_until:null},
+  {goal_id:'food',user_id:'b',active_from:'2026-09-21',active_until:null}];
+const protectedFood=buildProgress([foodGoal],foodAssignments,
+  [{goal_id:'food',user_id:'a',local_date:'2026-09-21',value:150,completed:true}],[],
+  [{goal_id:'food',effective_date:'2026-09-21',status:'active'}],stats,duo,'a',today,false);
+assert.equal(protectedFood.habits[0].friendPrivate,true);
+assert.equal(protectedFood.habits[0].rates.week.you,33);
+assert.equal(protectedFood.heatmap.find(day=>day.date==='2026-09-21').sharedGoalsTotal,0);
+assert.equal(protectedFood.summaries.week.friend,0);
 console.log('Phase 3 progress history, target snapshots, lifecycle, calendar, and empty-state checks passed.');
