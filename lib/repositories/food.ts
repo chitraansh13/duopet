@@ -68,7 +68,7 @@ export async function archiveFood(client: Client, food: Food, userId: string) {
 
 export async function saveFoodLog(client: Client, foodId: string, quantity: number, entryId?: string) {
   if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 100) throw new FoodRepositoryError("Enter a quantity above zero and at most 100 servings.");
-  const { data, error } = await client.rpc("save_food_log", { p_food_id: foodId, p_quantity: quantity, p_entry_id: entryId ?? null });
+  const { data, error } = await client.rpc("save_food_log", { p_food_id: foodId, p_quantity: quantity, p_entry_id: entryId });
   if (error || !data) throw new FoodRepositoryError("Your food couldn’t be logged. Please retry.");
   return data;
 }

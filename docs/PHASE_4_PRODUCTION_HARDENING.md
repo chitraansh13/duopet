@@ -74,3 +74,7 @@ The public deployment was inspected at 390×844: login displayed without horizon
 ## Optional later work
 
 Push notifications are deferred. If added, use per-user opt-in preferences and quiet hours in the duo timezone for goal, nutrition, partner, and end-of-day reminders. Keep reminders independent of authoritative goal/XP finalization and avoid repeated nudges.
+
+### Calorie-range extension
+
+The existing scheduled wrapper/job also finalizes range Calories through `finalize_due_goal_days()` after migration `20260928141415_calorie_target_range.sql`. Full range earns 10 XP; moderately under earns 5 XP and still counts toward a Perfect Duo Day. Open days earn neither. See [Food and goal semantics](FOOD_AND_GOAL_SEMANTICS.md) for boundaries and legacy snapshot policy.

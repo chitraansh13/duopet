@@ -1,13 +1,19 @@
 import type { GoalDefinition, GoalTarget, UserId } from "./goal-data";
 
 export type GoalRecord = Omit<GoalDefinition, "targets"> & { targets: Omit<GoalTarget, "currentValue" | "hasCheckIn" | "finalized">[] };
-export interface GoalCheckIn { goalId: string; userId: UserId; date: string; value: number; finalized?: boolean }
+export interface GoalCheckIn { goalId: string; userId: UserId; date: string; value: number; finalized?: boolean; targetSnapshot?: number; directionSnapshot?: GoalTarget["directionSnapshot"]; rangeSemantics?: GoalTarget["rangeSemantics"] }
 export interface GoalState { definitions: GoalRecord[]; checkIns: GoalCheckIn[]; date: string }
+
+function snapshotFor(state: GoalState, goalId: string, userId: UserId) {
+  const entry = state.checkIns.find((item) => item.goalId === goalId && item.userId === userId && item.date === state.date);
+  return entry ? { ...(entry.targetSnapshot !== undefined ? { target: entry.targetSnapshot } : {}), ...(entry.directionSnapshot ? { directionSnapshot: entry.directionSnapshot } : {}), ...(entry.rangeSemantics ? { rangeSemantics: entry.rangeSemantics } : {}) } : {};
+}
 
 /** The existing component model is a projection of definitions + one day's check-ins. */
 export function selectGoals(state: GoalState): GoalDefinition[] {
   return state.definitions.map((goal) => ({ ...goal, targets: goal.targets.map((target) => ({
     ...target,
+    ...snapshotFor(state, goal.id, target.userId),
     currentValue: state.checkIns.find((entry) => entry.goalId === goal.id && entry.userId === target.userId && entry.date === state.date)?.value ?? 0,
     ...(state.checkIns.find((entry) => entry.goalId === goal.id && entry.userId === target.userId && entry.date === state.date)?.finalized ? { finalized: true } : {}),
     hasCheckIn:state.checkIns.some((entry)=>entry.goalId===goal.id&&entry.userId===target.userId&&entry.date===state.date),

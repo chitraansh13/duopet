@@ -11,6 +11,8 @@ import { loadTaskHistory } from "@/lib/repositories/task-history";
 import { formatGoalValue } from "@/lib/goal-data";
 import { useSession } from "@/components/SessionProvider";
 
+import { CalorieRangeSummary } from "@/components/goals/CalorieRangeSummary";
+
 type HistoryRow=Awaited<ReturnType<typeof loadTaskHistory>>[number];
 function historicalValue(value:number,unit:string|null,displayUnit?:string){
   if(unit==="seconds")return formatGoalValue(displayUnit==="min"?value/60:value/3600,displayUnit??"hrs");
@@ -61,7 +63,7 @@ export function TaskDetail({ goal, onClose }: { goal: GoalDefinition; onClose: (
         <div className="flex items-center gap-2"><CalendarClock className="size-4 text-luxury" /><h3 className="text-sm font-bold">Recent history</h3></div>
         {loading?<p className="mt-2 rounded-2xl bg-surface px-4 py-5 text-center text-xs text-muted shadow-soft">Loading history...</p>:
           historyError?<p role="alert" className="mt-2 rounded-2xl bg-surface px-4 py-5 text-center text-xs text-accent shadow-soft">{historyError}</p>:
-          history.length?<ol className="mt-2 divide-y divide-line rounded-2xl bg-surface px-4 shadow-soft">{history.map((row)=><li key={row.id} className="flex items-center justify-between gap-3 py-3 text-xs"><span><b>{row.user_id===currentUserId?"You":"Friend"}</b> · {row.local_date}<span className="ml-2 text-muted">{row.completed?"Completed":row.direction_snapshot==="maximum"&&row.finalized_at?"Over target":"In progress"}</span></span><span className="text-right font-semibold">{goal.trackingType==="boolean"?(row.completed?"Done":"Not done"):`${historicalValue(Number(row.value),row.unit_snapshot,goal.unit)} / ${historicalValue(Number(row.target_snapshot??0),row.unit_snapshot,goal.unit)}`}</span></li>)}</ol>:
+          history.length?<ol className="mt-2 divide-y divide-line rounded-2xl bg-surface px-4 shadow-soft">{history.map((row)=><li key={row.id} className="flex items-center justify-between gap-3 py-3 text-xs"><span><b>{row.user_id===currentUserId?"You":"Friend"}</b> · {row.local_date}<span className="ml-2 text-muted">{row.completion_tier==="partial"?"Completed · Partial credit":row.completed?(row.direction_snapshot==="range"?"On target":"Completed"):row.direction_snapshot==="range"&&row.finalized_at?"Not completed":row.direction_snapshot==="maximum"&&row.finalized_at?"Over target":"In progress"}</span></span><div className="min-w-0 text-right font-semibold">{goal.trackingType==="boolean"?(row.completed?"Done":"Not done"):`${historicalValue(Number(row.value),row.unit_snapshot,goal.unit)} / ${historicalValue(Number(row.target_snapshot??0),row.unit_snapshot,goal.unit)}`}{row.direction_snapshot==="range"&&<CalorieRangeSummary value={Number(row.value)} target={Number(row.target_snapshot)} semantics={{lowerTolerance:Number(row.lower_tolerance_snapshot),upperTolerance:Number(row.upper_tolerance_snapshot),partialUnderTolerance:Number(row.partial_under_tolerance_snapshot)}} />}</div></li>)}</ol>:
           <div className="mt-2 rounded-2xl bg-surface px-4 py-5 text-center shadow-soft"><p className="text-xs font-semibold">No history yet</p><p className="mt-1 text-[11px] text-muted">Completed days will appear here as you build your rhythm.</p></div>}
       </div>
 

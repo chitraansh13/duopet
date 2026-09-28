@@ -12,13 +12,40 @@ The Food page loads the current user's diary and at most 200 rows from the last 
 
 ## Nutrition → canonical goals
 
-Goals now have `progress_source` (`manual`, `food_calories`, `food_protein`) and `target_direction` (`minimum`, `maximum`). Food RPCs run as a transaction: write the caller's diary row, sum that caller's per-day snapshot × quantity, then upsert their food-sourced goal check-ins. A duo row lock serializes concurrent diary writes and day finalization. Both members can read aggregate goal check-ins through the existing goal policies; neither can read the other's diary. Direct authenticated writes to `goal_checkins` have been revoked. `set_goal_checkin` rejects food-sourced goals. The food-sync helper is private and uncallable by browser roles.
+Goals now have `progress_source` (`manual`, `food_calories`, `food_protein`) and `target_direction` (`minimum`, `maximum`, `range`). Food RPCs run as a transaction: write the caller's diary row, sum that caller's per-day snapshot × quantity, then upsert their food-sourced goal check-ins. A duo row lock serializes concurrent diary writes and day finalization. Both members can read aggregate goal check-ins through the existing goal policies; neither can read the other's diary. Direct authenticated writes to `goal_checkins` have been revoked. `set_goal_checkin` rejects food-sourced goals. The food-sync helper is private and uncallable by browser roles.
 
-Protein is a minimum goal: it completes at or above the user's own target snapshot, awards +10 XP once, and reverses that event if nutrition falls below target. Calories is a maximum goal: during the open day the UI shows consumed/remaining/over, never a completion percentage. A maximum check-in's generated `completed` flag remains false until `finalized_at` is set after the duo-local day closes. No calorie XP or perfect-day XP can be awarded merely for being under the limit midday.
+Protein is a minimum goal: it completes at or above the user's own target snapshot, awards +10 XP once, and reverses that event if nutrition falls below target. Study and boolean goals are unchanged. Manual maximum goals remain supported, with their existing day-close semantics.
 
-On authenticated runtime load, `finalize_due_goal_days()` closes eligible maximum days through yesterday. It inserts a zero-value check-in when no food was logged, or finalizes the existing daily total. The latest finalized date bounds repeat work. It uses the duo's stored IANA timezone and historical goal status/assignment dates. Running it twice is safe. The existing deterministic XP keys then award/reverse completion, both-member, and perfect-day events from generated check-in completion. An open maximum goal keeps the perfect-day condition false. Phase 4 may add a scheduled invocation so days can close without an authenticated visit; it is not needed for correctness on the next visit.
+### Calories: dynamic target range
 
-Historical check-ins retain their `direction_snapshot`, `target_snapshot`, and `unit_snapshot`. Progress and Task History read the database-generated `completed` value, so changing a target later does not reinterpret old days. The historic lifecycle is read from `goal_status_events`. The manual goal creation form supports minimum/maximum. A direction stays fixed on edit; replacing a definition is required to change the meaning of old check-ins.
+Calories is a food-derived **range** goal. Given that day's personal target T:
+
+| Final food-derived total | Outcome | Completed | Goal XP |
+| --- | --- | --- | --- |
+| T − 200 ≤ total ≤ T + 200 | Full success | Yes | 10 |
+| T − 400 ≤ total < T − 200 | Moderately under / partial credit | Yes | 5 |
+| total < T − 400 | Too far under | No | 0 |
+| total > T + 200 | Over range | No | 0 |
+
+The partial interval excludes the full-success lower boundary. Decimal food totals are compared directly, without rounding them into a different tier: 1499.99 at a 1700 target is partial, 1500 is full. Each partner uses their **own** target; 2000 gives a full range 1800–2200 and partial range 1600–below 1800. Targets remain caller-owned and versioned through the existing Today / Tomorrow target flow.
+
+The UI shows consumed, target, full range, and neutral within/below/over context. Partial credit is provisional during the day. Neither low intake nor merely being inside the range is marked completed or awarded XP before day close. Today and Tasks share the range presentation with Food; Food history and Task History use the selected day's snapshots. Progress completion rates count partial days as completed, while habit rows distinguish on-target, partial-credit, and outside-range day counts. Completion percentage is not an XP percentage.
+
+### Trusted close and immutable history
+
+The SQL evaluator `private.goal_completion_tier` drives stored `completion_tier` and `completed`; the XP trigger reads the derived tier and uses the existing deterministic completion event key. Full earns 10; partial earns 5. Both count toward the existing shared-completion bonus and Perfect Duo Day. A too-low or over-range result blocks both bonuses. Open range check-ins block Perfect Duo Day until all applicable goals succeed after finalization. No client can submit a tier, tolerance snapshot, completion result, finalization timestamp, food-derived value, or XP award.
+
+`finalize_due_goal_days()` closes maximum **and range** days through yesterday, under the existing duo lock, using the duo's stored IANA timezone and historical assignments/status. A missing food-sourced projection reads authoritative diary snapshot × quantity totals; a day with no food has zero intake and ordinarily fails the calorie range. Retry skips already finalized check-ins and cannot duplicate XP. Finalized snapshots cannot subsequently change value, target, direction, tolerances, or close timestamp.
+
+The existing hourly Cron job `duopet-finalize-due-days` (`17 * * * *`) still calls `private.run_scheduled_finalization()`. That wrapper invokes the same goal finalizer and challenge finalizer. No new job or parallel implementation is introduced. Authenticated load/day-rollover remains a safe fallback.
+
+Check-ins save `direction_snapshot`, `target_snapshot`, `unit_snapshot`, and, for range days, `lower_tolerance_snapshot`, `upper_tolerance_snapshot`, `partial_under_tolerance_snapshot`. Today target changes deliberately change only today's target snapshot; Tomorrow edits leave it intact. Future tolerance changes cannot reinterpret existing snapshots. The domain adapter and realtime merge preserve those semantics instead of replacing them with today's definition.
+
+### Range migration / legacy days
+
+`20260928141415_calorie_target_range.sql` converts food-calorie definitions from maximum to range in place, preserving IDs, targets/versions, lifecycle, food logs, check-ins, XP, and dormant challenge links. The exact old starter note is updated to target-range copy; custom notes are preserved. Fresh starter seeding uses range immediately. No existing check-in is updated or recreated, and no prior XP is recalculated.
+
+Each converted definition records `range_effective_from` in its duo timezone. New check-ins from that date use range snapshots. An existing check-in, including an already-open maximum day, keeps its saved maximum semantics and original full 10-XP eligibility. A missing older projection finalized later uses legacy maximum semantics. Historical minimum/manual calorie check-ins also retain their original semantics. Legacy days are never presented as fabricated range outcomes. This explicit transition means an already-logged production day may finish under legacy rules; the next new day uses range.
 
 ## Starter migration
 
@@ -47,3 +74,9 @@ The Food page has a duo-scoped channel for catalog/current-user diary changes an
 Apply `202609250003_partner_privacy.sql` after the two food migrations using `supabase db push --linked` after reviewing the linked migration list and dry run. This additive migration backfills default-on preferences without touching existing goals, logs, or check-ins. Never run `supabase/manual/DESTRUCTIVE_TEST_DATA_RESET.sql` on production; it exists solely for disposable local tests.
 
 Automated validation: `npm test`, `npm run typecheck`, `npm run build`, and `git diff --check`. PGlite tests cover sharing defaults, personal-goal visibility and write denial, diary visibility, independent aggregate gating, owner access, bounded aggregate queries, cross-duo isolation, and existing food/XP behavior. Hosted A/B checks should toggle each flag with both sessions open, directly query each table/RPC as B before and after revocation, verify read-only partner Today/Tasks and historical Food dates, then confirm old private cards disappear without reload. Shared Brownie XP/streak totals remain duo-wide and may indirectly reflect activity without exposing private goal names, check-ins, or diary rows.
+
+## Calorie-range validation
+
+Automated domain/PostgreSQL tests cover 1299, 1300, 1499, 1500, 1700, 1900, 1901 at target 1700; fractional boundaries; dynamic 2000 ranges; personal target independence; same-day/tomorrow target updates; no midday XP; food undo/re-add; 5/10-XP finalizer retry safety; partial-credit Perfect Duo Days; too-low/over-range rejection; legacy/open maximum preservation; generated-result and tolerance spoof rejection; cross-duo denial; and immutable old targets/tolerances. These use disposable PGlite databases. Hosted verification uses schema, grants, Cron, and aggregate integrity checks without changing real food, target, or check-in values. A deployed UI smoke test should verify both partner range displays and the next new duo day.
+
+Hosted validation on 2026-09-28: migration `20260928141415` applied successfully and all 18 repository migrations match hosted history. One food-calorie definition converted; none remain maximum. Before/after fingerprints for all 32 existing check-ins and all 23 XP ledger events match exactly. The 11 food logs and 21 assignments remain intact. Hosted pure SQL evaluation returns failed/partial/partial/full/full/full/failed for the seven 1700 boundary cases and pending for all open-day cases. The hourly job remains active with its original wrapper and schedule. Calling the wrapper twice inside a transaction passed retry/duplicate-key assertions, then rolled back. Authenticated/anonymous execution of the scheduler remains denied, and direct check-in/tolerance updates remain denied. Database types were regenerated from this hosted schema. Frontend deployment and a visual smoke test of a newly logged range day remain the release steps; no real user's diary or target was changed for testing.

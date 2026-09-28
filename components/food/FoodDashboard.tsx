@@ -11,7 +11,8 @@ import { formatNutrition, nutritionTotals, type Food, type FoodLogEntry } from "
 import { FoodRepositoryError, archiveFood, deleteFoodLog, loadFoodDay, loadFoods, saveFood, saveFoodLog } from "@/lib/repositories/food";
 import { reportIssue } from "@/lib/diagnostics";
 import { createClient } from "@/lib/supabase/client";
-import { getGoalTarget } from "@/lib/goal-data";
+import { CalorieRangeSummary } from "@/components/goals/CalorieRangeSummary";
+import { goalDirection, goalRangeSemantics, getGoalTarget } from "@/lib/goal-data";
 import { FoodHistoryPanel } from "./FoodHistoryPanel";
 
 function errorMessage(cause: unknown) { return cause instanceof FoodRepositoryError ? cause.message : "Couldn't load this right now. Please try again."; }
@@ -96,7 +97,8 @@ export function FoodDashboard() {
   const totals = nutritionTotals(entries);
   const caloriesGoal = goals.find((goal) => goal.status === "active" && goal.progressSource === "food_calories");
   const proteinGoal = goals.find((goal) => goal.status === "active" && goal.progressSource === "food_protein");
-  const caloriesTarget = caloriesGoal ? getGoalTarget(caloriesGoal, profile.id)?.target : undefined;
+  const calorieGoalTarget = caloriesGoal ? getGoalTarget(caloriesGoal, profile.id) : undefined;
+  const caloriesTarget = calorieGoalTarget?.target;
   const proteinTarget = proteinGoal ? getGoalTarget(proteinGoal, profile.id)?.target : undefined;
   const shown = catalog.filter((food) => food.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const partner = duo.members.find((member) => member.userId !== profile.id);
@@ -108,7 +110,7 @@ export function FoodDashboard() {
   if (person==="partner" || view==="history") return <AppShell><div className="space-y-5 py-4 sm:py-7">
     <header><p className="text-sm font-medium text-muted">Your daily rhythm</p><h1 className="mt-1 text-[2rem] font-bold tracking-[-0.035em] sm:text-4xl">Food</h1><p className="mt-2 text-sm text-muted">{person==="partner" ? "Your partner’s food, shared on their terms." : "Your recent food history."}</p></header>
     {switcher}
-    {partner&&sharingLoaded&&<FoodHistoryPanel duoId={duo.id} userId={person==="partner"?partner.userId:profile.id} today={date} timezone={duo.timezone} history={view==="history"} diaryVisible={person==="you"||partnerSharing.share_food_diary} totalsVisible={person==="you"||partnerSharing.share_nutrition_totals} partner={person==="partner"} />}
+    {partner&&sharingLoaded&&<FoodHistoryPanel duoId={duo.id} userId={person==="partner"?partner.userId:profile.id} today={date} timezone={duo.timezone} history={view==="history"} diaryVisible={person==="you"||partnerSharing.share_food_diary} totalsVisible={person==="you"||partnerSharing.share_nutrition_totals} partner={person==="partner"} calorieGoal={caloriesGoal} calorieTarget={caloriesGoal ? getGoalTarget(caloriesGoal,person==="partner" ? partner.userId : profile.id) : undefined} />}
     {!sharingLoaded&&<p className="rounded-[1.25rem] bg-surface p-5 text-sm text-muted shadow-soft">Loading sharing settings…</p>}
   </div></AppShell>;
 
@@ -116,7 +118,7 @@ export function FoodDashboard() {
     <header><p className="text-sm font-medium text-muted">Your daily rhythm</p><h1 className="mt-1 text-[2rem] font-bold tracking-[-0.035em] sm:text-4xl">Food</h1><p className="mt-2 text-sm text-muted">Log what you eat. Calories and protein update your goals automatically.</p></header>
     {switcher}
     <section className="grid grid-cols-2 gap-3" aria-label="Today’s nutrition">
-      <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{formatNutrition(totals.calories,"kcal")}</p><p className="text-[11px] text-muted">consumed today</p><p className="mt-2 text-sm font-semibold text-accent">{caloriesTarget === undefined ? "Set a calorie goal in Tasks" : totals.calories > caloriesTarget ? `${formatNutrition(totals.calories-caloriesTarget,"kcal")} over target` : `${formatNutrition(caloriesTarget-totals.calories,"kcal")} remaining`}</p></div>
+      <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{formatNutrition(totals.calories,"kcal")}</p><p className="text-[11px] text-muted">consumed today</p>{caloriesGoal && calorieGoalTarget && goalDirection(caloriesGoal,calorieGoalTarget)==="range" && caloriesTarget !== undefined ? <CalorieRangeSummary value={totals.calories} target={caloriesTarget} semantics={goalRangeSemantics(caloriesGoal,calorieGoalTarget)} /> : <p className="mt-2 text-sm font-semibold text-accent">{caloriesTarget === undefined ? "Set a calorie goal in Tasks" : totals.calories > caloriesTarget ? `${formatNutrition(totals.calories-caloriesTarget,"kcal")} over target` : `${formatNutrition(caloriesTarget-totals.calories,"kcal")} remaining`}</p>}</div>
       <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Protein</p><p className="mt-2 text-xl font-bold">{formatNutrition(totals.protein,"g")}</p><p className="text-[11px] text-muted">consumed today</p><p className="mt-2 text-sm font-semibold text-accent">{proteinTarget === undefined ? "Set a protein goal in Tasks" : totals.protein >= proteinTarget ? "Target achieved ✓" : `${formatNutrition(proteinTarget-totals.protein,"g")} remaining`}</p></div>
     </section>
     <section className="rounded-[1.5rem] bg-surface p-4 shadow-soft" aria-label="Find saved foods"><label htmlFor="food-search" className="text-sm font-bold">Search foods</label><div className="mt-2 flex items-center gap-2 rounded-xl border border-line bg-subtle px-3"><Search className="size-4 text-muted" /><input id="food-search" value={query} onChange={(event) => { setQuery(event.target.value); setMenuFoodId(null); }} placeholder="Search foods" className="min-h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted" /></div>

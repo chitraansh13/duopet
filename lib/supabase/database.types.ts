@@ -230,30 +230,6 @@ export type Database = {
           },
         ]
       }
-      foods: {
-        Row: { id: string; duo_id: string; created_by: string; name: string; serving_description: string; calories_per_serving: number; protein_grams_per_serving: number; created_at: string; updated_at: string; archived_at: string | null }
-        Insert: { id?: string; duo_id: string; created_by: string; name: string; serving_description: string; calories_per_serving: number; protein_grams_per_serving: number; created_at?: string; updated_at?: string; archived_at?: string | null }
-        Update: { id?: string; duo_id?: string; created_by?: string; name?: string; serving_description?: string; calories_per_serving?: number; protein_grams_per_serving?: number; created_at?: string; updated_at?: string; archived_at?: string | null }
-        Relationships: []
-      }
-      food_log_entries: {
-        Row: { id: string; duo_id: string; user_id: string; food_id: string; local_date: string; quantity: number; calories_snapshot: number; protein_snapshot: number; serving_snapshot: string; food_name_snapshot: string; created_at: string; updated_at: string }
-        Insert: { id?: string; duo_id: string; user_id: string; food_id: string; local_date: string; quantity: number; calories_snapshot: number; protein_snapshot: number; serving_snapshot: string; food_name_snapshot: string; created_at?: string; updated_at?: string }
-        Update: { id?: string; duo_id?: string; user_id?: string; food_id?: string; local_date?: string; quantity?: number; calories_snapshot?: number; protein_snapshot?: number; serving_snapshot?: string; food_name_snapshot?: string; created_at?: string; updated_at?: string }
-        Relationships: []
-      }
-      sharing_preferences: {
-        Row: { user_id: string; share_personal_goals: boolean; share_food_diary: boolean; share_nutrition_totals: boolean; updated_at: string }
-        Insert: { user_id: string; share_personal_goals?: boolean; share_food_diary?: boolean; share_nutrition_totals?: boolean; updated_at?: string }
-        Update: { user_id?: string; share_personal_goals?: boolean; share_food_diary?: boolean; share_nutrition_totals?: boolean; updated_at?: string }
-        Relationships: []
-      }
-      food_day_updates: {
-        Row: { user_id: string; duo_id: string; local_date: string; updated_at: string }
-        Insert: { user_id: string; duo_id: string; local_date: string; updated_at?: string }
-        Update: { user_id?: string; duo_id?: string; local_date?: string; updated_at?: string }
-        Relationships: []
-      }
       duos: {
         Row: {
           created_at: string
@@ -288,6 +264,156 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_day_updates: {
+        Row: {
+          duo_id: string
+          local_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          duo_id: string
+          local_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          duo_id?: string
+          local_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_day_updates_duo_id_user_id_fkey"
+            columns: ["duo_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "duo_members"
+            referencedColumns: ["duo_id", "user_id"]
+          },
+        ]
+      }
+      food_log_entries: {
+        Row: {
+          calories_snapshot: number
+          created_at: string
+          duo_id: string
+          food_id: string
+          food_name_snapshot: string
+          id: string
+          local_date: string
+          protein_snapshot: number
+          quantity: number
+          serving_snapshot: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calories_snapshot: number
+          created_at?: string
+          duo_id: string
+          food_id: string
+          food_name_snapshot: string
+          id?: string
+          local_date: string
+          protein_snapshot: number
+          quantity: number
+          serving_snapshot: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calories_snapshot?: number
+          created_at?: string
+          duo_id?: string
+          food_id?: string
+          food_name_snapshot?: string
+          id?: string
+          local_date?: string
+          protein_snapshot?: number
+          quantity?: number
+          serving_snapshot?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_log_entries_duo_id_fkey"
+            columns: ["duo_id"]
+            isOneToOne: false
+            referencedRelation: "duos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_log_entries_duo_id_user_id_fkey"
+            columns: ["duo_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "duo_members"
+            referencedColumns: ["duo_id", "user_id"]
+          },
+          {
+            foreignKeyName: "food_log_entries_food_id_duo_id_fkey"
+            columns: ["food_id", "duo_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id", "duo_id"]
+          },
+        ]
+      }
+      foods: {
+        Row: {
+          archived_at: string | null
+          calories_per_serving: number
+          created_at: string
+          created_by: string
+          duo_id: string
+          id: string
+          name: string
+          protein_grams_per_serving: number
+          serving_description: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          calories_per_serving: number
+          created_at?: string
+          created_by: string
+          duo_id: string
+          id?: string
+          name: string
+          protein_grams_per_serving: number
+          serving_description: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          calories_per_serving?: number
+          created_at?: string
+          created_by?: string
+          duo_id?: string
+          id?: string
+          name?: string
+          protein_grams_per_serving?: number
+          serving_description?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "foods_duo_id_created_by_fkey"
+            columns: ["duo_id", "created_by"]
+            isOneToOne: false
+            referencedRelation: "duo_members"
+            referencedColumns: ["duo_id", "user_id"]
+          },
+          {
+            foreignKeyName: "foods_duo_id_fkey"
+            columns: ["duo_id"]
+            isOneToOne: false
+            referencedRelation: "duos"
             referencedColumns: ["id"]
           },
         ]
@@ -344,48 +470,60 @@ export type Database = {
         Row: {
           assignment_id: string
           completed: boolean | null
+          completion_tier: string | null
+          created_at: string
           direction_snapshot: string
           finalized_at: string | null
-          created_at: string
           goal_id: string
           id: string
           local_date: string
+          lower_tolerance_snapshot: number | null
+          partial_under_tolerance_snapshot: number | null
           target_snapshot: number | null
           tracking_snapshot: string
           unit_snapshot: string | null
           updated_at: string
+          upper_tolerance_snapshot: number | null
           user_id: string
           value: number
         }
         Insert: {
           assignment_id: string
           completed?: boolean | null
+          completion_tier?: string | null
+          created_at?: string
           direction_snapshot?: string
           finalized_at?: string | null
-          created_at?: string
           goal_id: string
           id?: string
           local_date: string
+          lower_tolerance_snapshot?: number | null
+          partial_under_tolerance_snapshot?: number | null
           target_snapshot?: number | null
           tracking_snapshot: string
           unit_snapshot?: string | null
           updated_at?: string
+          upper_tolerance_snapshot?: number | null
           user_id: string
           value: number
         }
         Update: {
           assignment_id?: string
           completed?: boolean | null
+          completion_tier?: string | null
+          created_at?: string
           direction_snapshot?: string
           finalized_at?: string | null
-          created_at?: string
           goal_id?: string
           id?: string
           local_date?: string
+          lower_tolerance_snapshot?: number | null
+          partial_under_tolerance_snapshot?: number | null
           target_snapshot?: number | null
           tracking_snapshot?: string
           unit_snapshot?: string | null
           updated_at?: string
+          upper_tolerance_snapshot?: number | null
           user_id?: string
           value?: number
         }
@@ -414,10 +552,33 @@ export type Database = {
         ]
       }
       goal_status_events: {
-        Row: { goal_id: string; effective_date: string; status: string; changed_at: string }
-        Insert: { goal_id: string; effective_date: string; status: string; changed_at?: string }
-        Update: { goal_id?: string; effective_date?: string; status?: string; changed_at?: string }
-        Relationships: [{ foreignKeyName: "goal_status_events_goal_id_fkey"; columns: ["goal_id"]; isOneToOne: false; referencedRelation: "goals"; referencedColumns: ["id"] }]
+        Row: {
+          changed_at: string
+          effective_date: string
+          goal_id: string
+          status: string
+        }
+        Insert: {
+          changed_at?: string
+          effective_date: string
+          goal_id: string
+          status: string
+        }
+        Update: {
+          changed_at?: string
+          effective_date?: string
+          goal_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_status_events_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       goals: {
         Row: {
@@ -428,17 +589,21 @@ export type Database = {
           duo_id: string
           icon_key: string
           id: string
+          lower_tolerance: number
           measurement_kind: string | null
           name: string
           notes: string | null
           owner_user_id: string | null
+          partial_under_tolerance: number
+          progress_source: string
+          range_effective_from: string | null
           scope: string
           status: string
-          tracking_type: string
           target_direction: string
-          progress_source: string
+          tracking_type: string
           unit: string | null
           updated_at: string
+          upper_tolerance: number
         }
         Insert: {
           archived_at?: string | null
@@ -448,17 +613,21 @@ export type Database = {
           duo_id: string
           icon_key?: string
           id?: string
+          lower_tolerance?: number
           measurement_kind?: string | null
           name: string
           notes?: string | null
           owner_user_id?: string | null
+          partial_under_tolerance?: number
+          progress_source?: string
+          range_effective_from?: string | null
           scope: string
           status?: string
-          tracking_type: string
           target_direction?: string
-          progress_source?: string
+          tracking_type: string
           unit?: string | null
           updated_at?: string
+          upper_tolerance?: number
         }
         Update: {
           archived_at?: string | null
@@ -468,17 +637,21 @@ export type Database = {
           duo_id?: string
           icon_key?: string
           id?: string
+          lower_tolerance?: number
           measurement_kind?: string | null
           name?: string
           notes?: string | null
           owner_user_id?: string | null
+          partial_under_tolerance?: number
+          progress_source?: string
+          range_effective_from?: string | null
           scope?: string
           status?: string
-          tracking_type?: string
           target_direction?: string
-          progress_source?: string
+          tracking_type?: string
           unit?: string | null
           updated_at?: string
+          upper_tolerance?: number
         }
         Relationships: [
           {
@@ -646,19 +819,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sharing_preferences: {
+        Row: {
+          share_food_diary: boolean
+          share_nutrition_totals: boolean
+          share_personal_goals: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          share_food_diary?: boolean
+          share_nutrition_totals?: boolean
+          share_personal_goals?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          share_food_diary?: boolean
+          share_nutrition_totals?: boolean
+          share_personal_goals?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sharing_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      get_food_totals: { Args: { p_user_id: string; p_from: string; p_to: string }; Returns: { local_date: string; calories: number; protein: number }[] }
-      create_directed_goal: { Args: { p_name: string; p_icon_key: string; p_scope: string; p_tracking_type: string; p_measurement_kind: string; p_display_unit: string; p_notes: string; p_targets: Json; p_target_direction: string }; Returns: string }
-      save_food_log: { Args: { p_food_id: string; p_quantity: number; p_entry_id?: string | null }; Returns: Database["public"]["Tables"]["food_log_entries"]["Row"] }
-      delete_food_log: { Args: { p_entry_id: string }; Returns: boolean }
-      finalize_due_goal_days: { Args: never; Returns: number }
-      finalize_due_challenges: { Args: never; Returns: number }
-      get_challenge_scores: { Args: { p_duo_id: string }; Returns: { challenge_id: string; user_id: string; score: number; shared_score: number }[] }
-      get_pet_stats: { Args: { p_duo_id: string }; Returns: { total_xp: number; perfect_days: number; current_streak: number; best_streak: number }[] }
+      create_directed_goal: {
+        Args: {
+          p_display_unit: string
+          p_icon_key: string
+          p_measurement_kind: string
+          p_name: string
+          p_notes: string
+          p_scope: string
+          p_target_direction: string
+          p_targets: Json
+          p_tracking_type: string
+        }
+        Returns: string
+      }
       create_duo: {
         Args: {
           p_brownie_name: string
@@ -680,7 +891,36 @@ export type Database = {
         }
         Returns: string
       }
+      delete_food_log: { Args: { p_entry_id: string }; Returns: boolean }
+      finalize_due_challenges: { Args: never; Returns: number }
+      finalize_due_goal_days: { Args: never; Returns: number }
+      get_challenge_scores: {
+        Args: { p_duo_id: string }
+        Returns: {
+          challenge_id: string
+          score: number
+          shared_score: number
+          user_id: string
+        }[]
+      }
       get_duo_context: { Args: never; Returns: Json }
+      get_food_totals: {
+        Args: { p_from: string; p_to: string; p_user_id: string }
+        Returns: {
+          calories: number
+          local_date: string
+          protein: number
+        }[]
+      }
+      get_pet_stats: {
+        Args: { p_duo_id: string }
+        Returns: {
+          best_streak: number
+          current_streak: number
+          perfect_days: number
+          total_xp: number
+        }[]
+      }
       join_duo: { Args: { p_invite_code: string }; Returns: string }
       replace_goal_assignment: {
         Args: {
@@ -705,22 +945,49 @@ export type Database = {
         }
         Returns: string
       }
+      save_food_log: {
+        Args: { p_entry_id?: string; p_food_id: string; p_quantity: number }
+        Returns: {
+          calories_snapshot: number
+          created_at: string
+          duo_id: string
+          food_id: string
+          food_name_snapshot: string
+          id: string
+          local_date: string
+          protein_snapshot: number
+          quantity: number
+          serving_snapshot: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "food_log_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       seed_default_goals: { Args: never; Returns: boolean }
       set_goal_checkin: {
         Args: { p_goal_id: string; p_local_date: string; p_value: number }
         Returns: {
           assignment_id: string
           completed: boolean | null
+          completion_tier: string | null
+          created_at: string
           direction_snapshot: string
           finalized_at: string | null
-          created_at: string
           goal_id: string
           id: string
           local_date: string
+          lower_tolerance_snapshot: number | null
+          partial_under_tolerance_snapshot: number | null
           target_snapshot: number | null
           tracking_snapshot: string
           unit_snapshot: string | null
           updated_at: string
+          upper_tolerance_snapshot: number | null
           user_id: string
           value: number
         }

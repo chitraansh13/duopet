@@ -5,7 +5,8 @@ export type GoalScope = "personal" | "shared";
 export type TrackingType = "boolean" | "measured";
 export type MeasurementKind = "number" | "duration";
 export type GoalStatus = "active" | "paused";
-export type TargetDirection = "minimum" | "maximum";
+import { calorieCompletion, type RangeSemantics, type TargetDirection } from "./goal-semantics";
+export type { TargetDirection } from "./goal-semantics";
 export type ProgressSource = "manual" | "food_calories" | "food_protein";
 export type GoalIconName = "gym" | "study" | "brain" | "calories" | "protein" | "steps" | "tea" | "water" | "check" | "flame";
 
@@ -17,6 +18,8 @@ export interface GoalTarget {
   currentValue: number;
   hasCheckIn?: boolean;
   finalized?: boolean;
+  directionSnapshot?: TargetDirection;
+  rangeSemantics?: RangeSemantics;
 }
 
 export interface GoalDefinition {
@@ -26,6 +29,7 @@ export interface GoalDefinition {
   scope: GoalScope;
   trackingType: TrackingType;
   targetDirection?: TargetDirection;
+  rangeSemantics?: RangeSemantics;
   progressSource?: ProgressSource;
   measurementKind?: MeasurementKind;
   unit?: string;
@@ -41,17 +45,21 @@ export function getGoalTarget(goal: GoalDefinition, userId: UserId) {
   return goal.targets.find((target) => target.userId === userId);
 }
 
+export function goalDirection(goal: GoalDefinition, target: GoalTarget) { return target.directionSnapshot ?? goal.targetDirection ?? "minimum"; }
+export function goalRangeSemantics(goal: GoalDefinition, target: GoalTarget) { return target.rangeSemantics ?? goal.rangeSemantics; }
+
 export function isGoalComplete(goal: GoalDefinition, target: GoalTarget) {
   if (!Number.isFinite(target.currentValue)) return false;
+  if (goal.trackingType === "measured" && goalDirection(goal, target) === "range") return calorieCompletion(target.currentValue, target.target ?? 0, Boolean(target.finalized), goalRangeSemantics(goal, target)).completed;
   return goal.trackingType === "boolean"
     ? target.currentValue >= 1
     : target.target !== undefined && Number.isFinite(target.target) && target.target > 0 &&
-      (goal.targetDirection === "maximum" ? Boolean(target.finalized) && target.currentValue <= target.target : target.currentValue >= target.target);
+      (goalDirection(goal, target) === "maximum" ? Boolean(target.finalized) && target.currentValue <= target.target : target.currentValue >= target.target);
 }
 
 export function goalProgress(goal: GoalDefinition, target: GoalTarget) {
   if (goal.trackingType === "boolean") return isGoalComplete(goal, target) ? 100 : 0;
-  if (goal.targetDirection === "maximum") return 0;
+  if (goalDirection(goal, target) !== "minimum") return 0;
   if (!target.target || target.target <= 0) return 0;
   return Number.isFinite(target.currentValue) ? Math.max(0, Math.min(100, Math.round((target.currentValue / target.target) * 100))) : 0;
 }

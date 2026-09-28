@@ -6,6 +6,15 @@ type GoalRow = Database["public"]["Tables"]["goals"]["Row"];
 type AssignmentRow = Database["public"]["Tables"]["goal_assignments"]["Row"];
 export type CheckInRow = Database["public"]["Tables"]["goal_checkins"]["Row"];
 
+function semantics(row: CheckInRow) {
+  return {
+    directionSnapshot: row.direction_snapshot === "range" ? "range" as const : row.direction_snapshot === "maximum" ? "maximum" as const : "minimum" as const,
+    rangeSemantics: row.direction_snapshot === "range" ? { lowerTolerance: Number(row.lower_tolerance_snapshot), upperTolerance: Number(row.upper_tolerance_snapshot), partialUnderTolerance: Number(row.partial_under_tolerance_snapshot) } : undefined,
+  };
+}
+
+function unitFor(goal: GoalRow) { return goal.display_unit ?? goal.unit; }
+
 const icons = new Set<GoalIconName>(["gym", "study", "brain", "calories", "protein", "steps", "tea", "water", "check", "flame"]);
 
 export function displayValue(value: number, kind: GoalRow["measurement_kind"], unit: string | null) {
@@ -60,7 +69,8 @@ export function goalStateFromRows(
       icon: icon(goal.icon_key),
       scope: scope(goal.scope),
       trackingType: tracking(goal.tracking_type),
-      targetDirection: goal.target_direction === "maximum" ? "maximum" : "minimum",
+      targetDirection: goal.target_direction === "range" ? "range" : goal.target_direction === "maximum" ? "maximum" : "minimum",
+      rangeSemantics: goal.target_direction === "range" ? { lowerTolerance: Number(goal.lower_tolerance), upperTolerance: Number(goal.upper_tolerance), partialUnderTolerance: Number(goal.partial_under_tolerance) } : undefined,
       progressSource: goal.progress_source === "food_calories" || goal.progress_source === "food_protein" ? goal.progress_source : "manual",
       measurementKind: measurement(goal.measurement_kind) ?? undefined,
       unit,
@@ -85,7 +95,7 @@ export function goalStateFromRows(
   const checkInState: GoalCheckIn[] = checkIns.filter((entry) => entry.local_date === date).flatMap((entry) => {
     const goal = goals.find((item) => item.id === entry.goal_id);
     if (!goal) return [];
-    return [{ goalId: entry.goal_id, userId: entry.user_id, date: entry.local_date, value: displayValue(Number(entry.value), goal.measurement_kind, goal.display_unit), finalized: Boolean(entry.finalized_at) }];
+    return [{ goalId: entry.goal_id, userId: entry.user_id, date: entry.local_date, value: displayValue(Number(entry.value), goal.measurement_kind, goal.display_unit), finalized: Boolean(entry.finalized_at), ...semantics(entry), targetSnapshot: entry.target_snapshot === null ? undefined : displayValue(Number(entry.target_snapshot),goal.measurement_kind,unitFor(goal)) }];
   });
   return { definitions, checkIns: checkInState, date };
 }
@@ -104,6 +114,8 @@ export function mergeCheckIn(state: GoalState, row: CheckInRow, event: "upsert" 
       date: row.local_date,
       value: displayValue(Number(row.value), definition.measurementKind ?? null, definition.unit ?? null),
       finalized: Boolean(row.finalized_at),
+      ...semantics(row),
+      targetSnapshot: row.target_snapshot === null ? undefined : displayValue(Number(row.target_snapshot),definition.measurementKind ?? null,definition.unit ?? null),
     }],
   };
 }

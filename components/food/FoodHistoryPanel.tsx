@@ -7,14 +7,21 @@ import { loadFoodHistoryDay, loadFoodTotals } from "@/lib/repositories/food";
 import { createClient } from "@/lib/supabase/client";
 import { reportIssue } from "@/lib/diagnostics";
 
-export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diaryVisible, totalsVisible, partner }: {
+import { CalorieRangeSummary } from "@/components/goals/CalorieRangeSummary";
+import { goalDirection, goalRangeSemantics, type GoalDefinition, type GoalTarget } from "@/lib/goal-data";
+import type { Database } from "@/lib/supabase/database.types";
+
+type CheckIn = Database["public"]["Tables"]["goal_checkins"]["Row"];
+
+export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diaryVisible, totalsVisible, partner, calorieGoal, calorieTarget }: {
   duoId: string; userId: string; today: string; timezone: string; history: boolean;
-  diaryVisible: boolean; totalsVisible: boolean; partner: boolean;
+  diaryVisible: boolean; totalsVisible: boolean; partner: boolean; calorieGoal?: GoalDefinition; calorieTarget?: GoalTarget;
 }) {
   const client = useMemo(() => createClient(), []);
   const [selectedDate, setSelectedDate] = useState(today);
   const [entries, setEntries] = useState<FoodLogEntry[]>([]);
   const [totals, setTotals] = useState<{ calories: number; protein: number } | null>(null);
+  const [calorieDay, setCalorieDay] = useState<CheckIn | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [revision, setRevision] = useState(0);
@@ -23,20 +30,23 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
 
   useEffect(() => {
     let live = true;
-    setEntries([]); setTotals(null); setError(undefined);
+    setEntries([]); setTotals(null); setCalorieDay(null); setError(undefined);
     if (!diaryVisible && !totalsVisible) return () => { live = false; };
     setLoading(true);
     void Promise.all([
       diaryVisible ? loadFoodHistoryDay(client, duoId, userId, date) : Promise.resolve([]),
       totalsVisible ? loadFoodTotals(client, userId, date, date) : Promise.resolve([]),
-    ]).then(([rows, summary]) => {
+      totalsVisible && calorieGoal ? client.from("goal_checkins").select("*").eq("goal_id",calorieGoal.id).eq("user_id",userId).eq("local_date",date).maybeSingle() : Promise.resolve({data:null,error:null}),
+    ]).then(([rows, summary, checkIn]) => {
       if (!live) return;
+      if(checkIn.error) throw checkIn.error;
+      setCalorieDay(checkIn.data);
       setEntries(rows);
       setTotals(totalsVisible ? { calories: Number(summary[0]?.calories ?? 0), protein: Number(summary[0]?.protein ?? 0) } : null);
       setLoading(false);
     }).catch((cause) => { if (live) { reportIssue("food.history",cause); setEntries([]); setTotals(null); setLoading(false); setError("This food day couldn’t be loaded. Please retry."); } });
     return () => { live = false; };
-  }, [client, duoId, userId, date, diaryVisible, totalsVisible, revision]);
+  }, [client, duoId, userId, date, diaryVisible, totalsVisible, revision, calorieGoal?.id]);
 
   useEffect(() => {
     let connected = false;
@@ -50,6 +60,9 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
     return () => { window.removeEventListener("online",online); void client.removeChannel(channel); };
   }, [client, userId, date]);
 
+  const target = calorieDay ? Number(calorieDay.target_snapshot) : date===today ? calorieTarget?.target : undefined;
+  const direction = calorieDay?.direction_snapshot ?? (calorieGoal && calorieTarget ? goalDirection(calorieGoal,calorieTarget) : undefined);
+  const semantics = calorieDay ? {lowerTolerance:Number(calorieDay.lower_tolerance_snapshot),upperTolerance:Number(calorieDay.upper_tolerance_snapshot),partialUnderTolerance:Number(calorieDay.partial_under_tolerance_snapshot)} : calorieGoal && calorieTarget ? goalRangeSemantics(calorieGoal,calorieTarget) : undefined;
   if (partner && !diaryVisible && !totalsVisible) return <div className="rounded-[1.5rem] bg-surface p-8 text-center shadow-soft"><p className="font-bold">Nutrition sharing is turned off.</p><p className="mt-2 text-sm text-muted">Your partner keeps this information private.</p></div>;
   return <div className="space-y-4">
     {history && <label className="block rounded-[1.25rem] bg-surface p-4 text-sm font-bold shadow-soft">Choose a day
@@ -59,7 +72,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
       <span className="mt-2 block text-xs font-normal text-muted">The most recent 14 duo days. Values use the nutrition saved when each meal was logged.</span>
     </label>}
     {totalsVisible && <section className="grid grid-cols-2 gap-3" aria-label={`${date} nutrition totals`}>
-      <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : formatNutrition(totals?.calories ?? 0,"kcal")}</p></div>
+      <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : formatNutrition(totals?.calories ?? 0,"kcal")}</p>{!loading&&!error&&direction==="range"&&target!==undefined&&<CalorieRangeSummary value={totals?.calories??0} target={target} semantics={semantics} />}</div>
       <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Protein</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : formatNutrition(totals?.protein ?? 0,"g")}</p></div>
     </section>}
     {diaryVisible ? <section className="rounded-[1.5rem] bg-surface p-4 shadow-soft"><h2 className="font-bold">{history ? `${date} food` : "Today’s food"}</h2>

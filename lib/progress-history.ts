@@ -78,8 +78,9 @@ export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], ch
     rates:Object.fromEntries(Object.entries(periods).map(([period]) => {
       const own=rateCounts(goal.id,currentId,period as ProgressPeriod),partner=rateCounts(goal.id,partnerId,period as ProgressPeriod);
       const you=percentage(own.done,own.total),friend=percentage(partner.done,partner.total);
-      return [period,{ you,friend,overall:percentage(own.done+partner.done,own.total+partner.total) }];
-    })) as Record<ProgressPeriod,{ overall:number;you:number;friend:number }>,
+      const rangeDays=checkIns.filter((row)=>row.goal_id===goal.id&&row.direction_snapshot==="range"&&row.finalized_at&&row.local_date>=periodDays(period as ProgressPeriod)[0]&&row.local_date<=today);
+      return [period,{ you,friend,overall:percentage(own.done+partner.done,own.total+partner.total),fullRangeDays:rangeDays.filter((row)=>row.completion_tier==="full").length,partialRangeDays:rangeDays.filter((row)=>row.completion_tier==="partial").length,failedRangeDays:rangeDays.filter((row)=>row.completion_tier==="failed").length }];
+    })) as Record<ProgressPeriod,{ overall:number;you:number;friend:number;fullRangeDays:number;partialRangeDays:number;failedRangeDays:number }>,
   }));
   const breakdown = Object.fromEntries(Object.entries(periods).map(([period]) => {
     const dates=periodDays(period as ProgressPeriod);
