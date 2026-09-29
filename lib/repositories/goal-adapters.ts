@@ -8,8 +8,9 @@ export type CheckInRow = Database["public"]["Tables"]["goal_checkins"]["Row"];
 
 function semantics(row: CheckInRow) {
   return {
+    hasFoodLog: Boolean(row.has_food_log),
     directionSnapshot: row.direction_snapshot === "range" ? "range" as const : row.direction_snapshot === "maximum" ? "maximum" as const : "minimum" as const,
-    rangeSemantics: row.direction_snapshot === "range" ? { lowerTolerance: Number(row.lower_tolerance_snapshot), upperTolerance: Number(row.upper_tolerance_snapshot), partialUnderTolerance: Number(row.partial_under_tolerance_snapshot) } : undefined,
+    rangeSemantics: row.direction_snapshot === "range" || row.logged_required_snapshot ? { lowerTolerance: Number(row.lower_tolerance_snapshot), upperTolerance: Number(row.upper_tolerance_snapshot), partialUnderTolerance: Number(row.partial_under_tolerance_snapshot), loggedRequired: Boolean(row.logged_required_snapshot) } : undefined,
   };
 }
 
@@ -70,7 +71,7 @@ export function goalStateFromRows(
       scope: scope(goal.scope),
       trackingType: tracking(goal.tracking_type),
       targetDirection: goal.target_direction === "range" ? "range" : goal.target_direction === "maximum" ? "maximum" : "minimum",
-      rangeSemantics: goal.target_direction === "range" ? { lowerTolerance: Number(goal.lower_tolerance), upperTolerance: Number(goal.upper_tolerance), partialUnderTolerance: Number(goal.partial_under_tolerance) } : undefined,
+      rangeSemantics: goal.target_direction === "range" ? { lowerTolerance: Number(goal.lower_tolerance), upperTolerance: Number(goal.upper_tolerance), partialUnderTolerance: Number(goal.partial_under_tolerance), loggedRequired: Boolean(goal.logged_required) } : undefined,
       progressSource: goal.progress_source === "food_calories" || goal.progress_source === "food_protein" ? goal.progress_source : "manual",
       measurementKind: measurement(goal.measurement_kind) ?? undefined,
       unit,

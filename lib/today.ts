@@ -19,6 +19,6 @@ export function deriveToday(goals: GoalDefinition[], currentUserId: UserId, part
     return you && friend && isGoalComplete(goal, you) !== isGoalComplete(goal, friend);
   });
   const mood: DogMood = perfectDay ? "celebrating" : duoProgress >= 80 ? "excited" : waiting ? "waiting" : someProgress ? "happy" : "sleepy";
-  const pet = { name:"Brownie",mood,level:companion.level,xp:companion.levelXp,xpGoal:companion.xpForNextLevel,xpForNextLevel:companion.xpForNextLevel,duoEnergy:duoProgress,duoStreak:companion.currentStreak,equippedAccessory:companion.accessory,message:petMoodMessages[mood] };
+  const pet = { name:"Brownie",mood,level:companion.level,xp:companion.levelXp,xpGoal:companion.xpForNextLevel,xpForNextLevel:companion.xpForNextLevel,duoEnergy:duoProgress,activityStreak:companion.currentStreak,equippedAccessory:companion.accessory,message:petMoodMessages[mood] };
   return { activeGoals, sharedGoals, yourGoals, partnerGoals, youProgress, friendProgress, duoProgress, pairedGoals, perfectDay, pet };
 }

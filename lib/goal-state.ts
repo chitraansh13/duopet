@@ -1,12 +1,12 @@
 import type { GoalDefinition, GoalTarget, UserId } from "./goal-data";
 
 export type GoalRecord = Omit<GoalDefinition, "targets"> & { targets: Omit<GoalTarget, "currentValue" | "hasCheckIn" | "finalized">[] };
-export interface GoalCheckIn { goalId: string; userId: UserId; date: string; value: number; finalized?: boolean; targetSnapshot?: number; directionSnapshot?: GoalTarget["directionSnapshot"]; rangeSemantics?: GoalTarget["rangeSemantics"] }
+export interface GoalCheckIn { goalId: string; userId: UserId; date: string; value: number; finalized?: boolean; targetSnapshot?: number; directionSnapshot?: GoalTarget["directionSnapshot"]; rangeSemantics?: GoalTarget["rangeSemantics"]; hasFoodLog?: boolean }
 export interface GoalState { definitions: GoalRecord[]; checkIns: GoalCheckIn[]; date: string }
 
 function snapshotFor(state: GoalState, goalId: string, userId: UserId) {
   const entry = state.checkIns.find((item) => item.goalId === goalId && item.userId === userId && item.date === state.date);
-  return entry ? { ...(entry.targetSnapshot !== undefined ? { target: entry.targetSnapshot } : {}), ...(entry.directionSnapshot ? { directionSnapshot: entry.directionSnapshot } : {}), ...(entry.rangeSemantics ? { rangeSemantics: entry.rangeSemantics } : {}) } : {};
+  return entry ? { ...(entry.targetSnapshot !== undefined ? { target: entry.targetSnapshot } : {}), ...(entry.directionSnapshot ? { directionSnapshot: entry.directionSnapshot } : {}), ...(entry.rangeSemantics ? { rangeSemantics: entry.rangeSemantics } : {}), ...(entry.hasFoodLog !== undefined ? { hasFoodLog: entry.hasFoodLog } : {}) } : {};
 }
 
 /** The existing component model is a projection of definitions + one day's check-ins. */

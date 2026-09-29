@@ -136,6 +136,7 @@ export function SessionProvider({ children, account, initialRuntime }: { childre
     const filter=`duo_id=eq.${account.duo.id}`;
     let connected=false;
     const channel=client.channel(`duo-runtime:${account.duo.id}`)
+      .on("postgres_changes",{event:"*",schema:"public",table:"user_activity_days",filter:`user_id=eq.${account.profile.id}`},refresh)
       .on("postgres_changes",{event:"*",schema:"public",table:"pet_xp_events",filter},refresh)
       .on("postgres_changes",{event:"*",schema:"public",table:"duo_pets",filter},refresh)
       .on("postgres_changes",{event:"*",schema:"public",table:"pet_room_items",filter},refresh)
@@ -146,7 +147,7 @@ export function SessionProvider({ children, account, initialRuntime }: { childre
     const visible=()=>{if(document.visibilityState==="visible")refresh();};
     window.addEventListener("online",online);document.addEventListener("visibilitychange",visible);
     return()=>{if(timer)clearTimeout(timer);window.removeEventListener("online",online);document.removeEventListener("visibilitychange",visible);void client.removeChannel(channel);};
-  },[account.duo.id,value.refreshRuntime,value.runtime.isDemoMode]);
+  },[account.duo.id,account.profile.id,value.refreshRuntime,value.runtime.isDemoMode]);
   return <SessionContext.Provider value={value}><MotionConfig reducedMotion="user">{children}</MotionConfig>{value.syncError&&<div role="alert" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[94] flex w-[min(92vw,28rem)] -translate-x-1/2 items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-surface shadow-card xl:bottom-8"><span className="flex-1">{value.syncError}</span><button type="button" onClick={()=>{void value.refreshRuntime();}} className="min-h-11 shrink-0 rounded-xl bg-surface px-3 font-bold text-ink">Try again</button></div>}{value.notice&&<div role="status" className="fixed bottom-[calc(7.5rem+env(safe-area-inset-bottom))] left-1/2 z-[95] -translate-x-1/2 rounded-full bg-ink px-4 py-3 text-sm font-bold text-surface shadow-card xl:bottom-8">✓ {value.notice}</div>}</SessionContext.Provider>;
 }
 export function useSession() {

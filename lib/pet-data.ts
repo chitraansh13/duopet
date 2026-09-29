@@ -8,7 +8,7 @@ export interface PetProfile {
   xpForNextLevel: number;
   mood: DogMood;
   duoEnergy: number;
-  duoStreak: number;
+  activityStreak: number;
   equippedAccessory: DogAccessory;
 }
 
@@ -53,7 +53,7 @@ export const petProfile: PetProfile = {
   xpForNextLevel: 500,
   mood: "happy",
   duoEnergy: 82,
-  duoStreak: 14,
+  activityStreak: 14,
   equippedAccessory: "basic-collar",
 };
 

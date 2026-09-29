@@ -22,6 +22,7 @@ set local statement_timeout = '2min';
 -- Listed leaf-to-root for auditability. A single TRUNCATE statement makes the
 -- foreign-key graph atomic; table order within this statement is documentary.
 truncate table
+  public.user_activity_days,
   public.food_day_updates,
   public.food_log_entries,
   public.foods,
@@ -43,7 +44,8 @@ truncate table
 do $$
 begin
   if exists (
-    select 1 from public.food_day_updates
+    select 1 from public.user_activity_days
+    union all select 1 from public.food_day_updates
     union all select 1 from public.food_log_entries
     union all select 1 from public.foods
     union all

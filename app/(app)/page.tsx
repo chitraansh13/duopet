@@ -50,7 +50,7 @@ export default function TodayPage() {
         <aside className="contents lg:sticky lg:top-6 lg:block lg:space-y-4" aria-label="Brownie and duo summary">
           <div className="order-3"><PetCard pet={pet} perfectDay={perfectDay} /></div>
           <div className="order-4"><DuoProgress progress={duoProgress} /></div>
-          <section className="order-5 flex items-center gap-3 rounded-[1.25rem] bg-surface px-4 py-3.5 shadow-soft"><span className="grid size-10 place-items-center rounded-xl bg-luxury-soft"><Flame className="size-5 fill-luxury text-luxury" /></span><div className="flex-1"><p className="text-xs font-medium text-muted">Duo streak</p><p className="text-base font-bold">{runtime.companion.currentStreak} days together</p></div></section>
+          <section className="order-5 flex items-center gap-3 rounded-[1.25rem] bg-surface px-4 py-3.5 shadow-soft"><span className="grid size-10 place-items-center rounded-xl bg-luxury-soft"><Flame className="size-5 fill-luxury text-luxury" /></span><div className="flex-1"><p className="text-xs font-medium text-muted">Your activity streak</p><p className="text-base font-bold">{runtime.companion.currentStreak} active days</p></div></section>
         </aside>
       </div>
     </AppShell>

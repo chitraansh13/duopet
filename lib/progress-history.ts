@@ -15,7 +15,7 @@ const icons=new Set<GoalIconName>(["gym","study","brain","calories","protein","s
 function label(date:string,options:Intl.DateTimeFormatOptions){return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US",{...options,timeZone:"UTC"});}
 function percentage(done:number,total:number){return total?Math.round(done/total*100):0;}
 
-export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], checkIns: CheckInRow[], events: XpRow[], statusEvents:StatusRow[], stats:PetStats, duo: AccountDuo, currentId: string, today: string, partnerNutritionVisible = true): ProgressDataset {
+export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], checkIns: CheckInRow[], events: XpRow[], statusEvents:StatusRow[], stats:PetStats, duo: AccountDuo, currentId: string, today: string, partnerNutritionVisible = true, activeDates: string[] = []): ProgressDataset {
   const partnerId = duo.members.find((member) => member.userId !== currentId)?.userId;
   const historyRows = checkIns.filter((row) => Number(row.value) > 0 || Boolean(row.completed));
   const hasHistory = historyRows.length > 0;
@@ -78,9 +78,9 @@ export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], ch
     rates:Object.fromEntries(Object.entries(periods).map(([period]) => {
       const own=rateCounts(goal.id,currentId,period as ProgressPeriod),partner=rateCounts(goal.id,partnerId,period as ProgressPeriod);
       const you=percentage(own.done,own.total),friend=percentage(partner.done,partner.total);
-      const rangeDays=checkIns.filter((row)=>row.goal_id===goal.id&&row.direction_snapshot==="range"&&row.finalized_at&&row.local_date>=periodDays(period as ProgressPeriod)[0]&&row.local_date<=today);
-      return [period,{ you,friend,overall:percentage(own.done+partner.done,own.total+partner.total),fullRangeDays:rangeDays.filter((row)=>row.completion_tier==="full").length,partialRangeDays:rangeDays.filter((row)=>row.completion_tier==="partial").length,failedRangeDays:rangeDays.filter((row)=>row.completion_tier==="failed").length }];
-    })) as Record<ProgressPeriod,{ overall:number;you:number;friend:number;fullRangeDays:number;partialRangeDays:number;failedRangeDays:number }>,
+      const rangeDays=checkIns.filter((row)=>row.goal_id===goal.id&&(row.direction_snapshot==="range"||row.logged_required_snapshot)&&row.finalized_at&&row.local_date>=periodDays(period as ProgressPeriod)[0]&&row.local_date<=today);
+      return [period,{ you,friend,overall:percentage(own.done+partner.done,own.total+partner.total),fullRangeDays:rangeDays.filter((row)=>row.completion_tier==="full").length,partialRangeDays:rangeDays.filter((row)=>row.completion_tier==="partial").length,failedRangeDays:rangeDays.filter((row)=>row.completion_tier==="failed").length,unloggedDays:rangeDays.filter((row)=>row.completion_tier==="unlogged").length }];
+    })) as Record<ProgressPeriod,{ overall:number;you:number;friend:number;fullRangeDays:number;partialRangeDays:number;failedRangeDays:number;unloggedDays:number }>,
   }));
   const breakdown = Object.fromEntries(Object.entries(periods).map(([period]) => {
     const dates=periodDays(period as ProgressPeriod);
@@ -90,6 +90,6 @@ export function buildProgress(goals: GoalRow[], assignments: AssignmentRow[], ch
   const distinctDays=new Set(historyRows.filter((row)=>row.local_date>=addDays(today,-13)).map((row)=>row.local_date));
   const recentDone=checkIns.filter((row)=>row.completed&&row.local_date>=addDays(today,-6)).length;
   const previousDone=checkIns.filter((row)=>row.completed&&row.local_date>=addDays(today,-13)&&row.local_date<addDays(today,-6)).length;
-  return { hasHistory,summaries,streak:{...streak,recentDays:Array.from({length:14},(_,index)=>{const date=addDays(today,index-13);return {date,label:label(date,{weekday:"narrow"}),successful:perfectDates.includes(date),perfect:perfectDates.includes(date),today:date===today};})},dailyCompletion,heatmap,habits,breakdown,completedDelta:recentDone-previousDone,insightsReady:distinctDays.size>=7&&dailyCompletion.some((day)=>day.you>0||day.friend>0) };
+  return { hasHistory,summaries,streak:{...streak,recentDays:Array.from({length:14},(_,index)=>{const date=addDays(today,index-13);return {date,label:label(date,{weekday:"narrow"}),successful:activeDates.includes(date),perfect:perfectDates.includes(date),today:date===today};})},dailyCompletion,heatmap,habits,breakdown,completedDelta:recentDone-previousDone,insightsReady:distinctDays.size>=7&&dailyCompletion.some((day)=>day.you>0||day.friend>0) };
 }
 

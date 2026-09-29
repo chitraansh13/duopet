@@ -43,7 +43,7 @@ export function ProfileDashboard() {
 
           <SettingsSection eyebrow="Together" title="Your Duo" icon={UsersRound}>
             <div className="flex items-center gap-3 px-4 py-4"><div className="flex -space-x-2"><Avatar initials={profile.initials} small /><Avatar initials={partner?.initials || "?"} small friend /></div><div><p className="font-semibold">{duoProfile.memberNames.join(" + ")}</p><p className="text-xs text-muted">Brownie’s humans</p></div></div>
-            <div className="grid grid-cols-2 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Day streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /></div>
+            <div className="grid grid-cols-2 border-t border-line px-2 py-4 text-center"><Stat value={duoProfile.streak} label="Your activity streak" /><Stat value={duoProfile.perfectDays} label="Perfect days" /></div>
             <div className="border-t border-line px-4 py-3"><p className="text-xs font-semibold">Duo management</p><p className="mt-1 text-xs leading-5 text-muted"><Link href="/onboarding" className="font-semibold text-accent">View your duo and invite</Link></p></div>
           </SettingsSection>
 

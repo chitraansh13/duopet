@@ -46,7 +46,7 @@ grant usage on schema auth,public to authenticated;
 create schema extensions; set search_path=public,extensions;`);
 const migrations = readdirSync('supabase/migrations').sort();
 const rangeMigration = migrations.find(name=>name.endsWith('_calorie_target_range.sql'));
-for (const name of migrations.filter(name=>name!==rangeMigration)) await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
+for (const name of migrations.filter(name=>name<rangeMigration)) await db.exec(readFileSync('supabase/migrations/'+name,'utf8'));
 // A private, disposable test clock exercises real RPCs/rollover, never hosted rows.
 await db.exec(`create table private.test_clock(day date); insert into private.test_clock values((now() at time zone 'Pacific/Auckland')::date);
 create or replace function private.duo_today(target_duo uuid) returns date language sql stable security definer set search_path='' as $$select day from private.test_clock$$;`);

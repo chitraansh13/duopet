@@ -9,14 +9,14 @@ export function StreakSummary({ current, best, recentDays, personal, shared }: {
 
   return (
     <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .1 }} className="rounded-[1.75rem] bg-surface p-5 shadow-soft">
-      <div className="flex items-start justify-between"><div><p className="text-xs font-semibold text-muted">Your last 14 days together</p><h2 className="mt-1 text-xl font-bold tracking-tight">Recent streak</h2></div><span className="grid size-10 place-items-center rounded-xl bg-luxury-soft text-luxury"><Flame className="size-5 fill-current" /></span></div>
+      <div className="flex items-start justify-between"><div><p className="text-xs font-semibold text-muted">Your last 14 days of activity</p><h2 className="mt-1 text-xl font-bold tracking-tight">Activity streak</h2></div><span className="grid size-10 place-items-center rounded-xl bg-luxury-soft text-luxury"><Flame className="size-5 fill-current" /></span></div>
       <div className="mt-5 grid grid-cols-2 divide-x divide-line border-y border-line py-3">
         <div className="px-3"><p className="text-3xl font-bold tracking-tight">{current}</p><p className="text-[10px] font-medium text-muted">Current streak</p></div>
         <div className="px-4"><p className="text-3xl font-bold tracking-tight">{best}</p><p className="text-[10px] font-medium text-muted">Longest streak</p></div>
       </div>
-      <div className="mt-5 space-y-3" aria-label={`${recentDays.filter((day) => day.successful).length} successful duo days in the last 14 days`}>
+      <div className="mt-5 space-y-3" aria-label={`${recentDays.filter((day) => day.successful).length} active days in the last 14 days`}>
         {weeks.map((week) => <div key={week[0]?.date} className="grid grid-cols-7 gap-1.5">
-          {week.map((day) => <div key={day.date} className="text-center" title={`${day.label}, ${day.date}: ${day.successful ? "successful duo day" : "streak missed"}${day.perfect ? ", perfect duo day" : ""}${day.today ? ", today" : ""}`}>
+          {week.map((day) => <div key={day.date} className="text-center" title={`${day.label}, ${day.date}: ${day.successful ? "you logged activity" : "no activity recorded"}${day.perfect ? ", perfect duo day" : ""}${day.today ? ", today" : ""}`}>
             <span className="mb-1.5 block text-[9px] font-bold text-muted">{day.label}</span>
             <span className={`relative mx-auto grid size-7 place-items-center rounded-full border ${day.successful ? "border-accent bg-accent" : "border-line bg-subtle"} ${day.today ? "outline outline-2 outline-offset-2 outline-ink/70" : ""}`}>
               {day.perfect && <span className="absolute -inset-1 rounded-full border border-luxury" />}

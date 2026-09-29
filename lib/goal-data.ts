@@ -18,6 +18,7 @@ export interface GoalTarget {
   currentValue: number;
   hasCheckIn?: boolean;
   finalized?: boolean;
+  hasFoodLog?: boolean;
   directionSnapshot?: TargetDirection;
   rangeSemantics?: RangeSemantics;
 }
@@ -50,7 +51,7 @@ export function goalRangeSemantics(goal: GoalDefinition, target: GoalTarget) { r
 
 export function isGoalComplete(goal: GoalDefinition, target: GoalTarget) {
   if (!Number.isFinite(target.currentValue)) return false;
-  if (goal.trackingType === "measured" && goalDirection(goal, target) === "range") return calorieCompletion(target.currentValue, target.target ?? 0, Boolean(target.finalized), goalRangeSemantics(goal, target)).completed;
+  if (goal.trackingType === "measured" && (goalDirection(goal, target) === "range" || goalRangeSemantics(goal,target)?.loggedRequired)) return calorieCompletion(target.currentValue, target.target ?? 0, Boolean(target.finalized), goalRangeSemantics(goal, target), Boolean(target.hasFoodLog)).completed;
   return goal.trackingType === "boolean"
     ? target.currentValue >= 1
     : target.target !== undefined && Number.isFinite(target.target) && target.target > 0 &&

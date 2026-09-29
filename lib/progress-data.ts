@@ -42,7 +42,7 @@ export interface HabitPerformanceData {
   name: string;
   icon: GoalIconName;
   friendPrivate?: boolean;
-  rates: Record<ProgressPeriod, { overall: number; you: number; friend: number; fullRangeDays?: number; partialRangeDays?: number; failedRangeDays?: number }>;
+  rates: Record<ProgressPeriod, { overall: number; you: number; friend: number; fullRangeDays?: number; partialRangeDays?: number; failedRangeDays?: number; unloggedDays?: number }>;
 }
 
 export interface ProgressDataset {

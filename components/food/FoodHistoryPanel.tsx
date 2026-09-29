@@ -22,6 +22,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
   const [entries, setEntries] = useState<FoodLogEntry[]>([]);
   const [totals, setTotals] = useState<{ calories: number; protein: number } | null>(null);
   const [calorieDay, setCalorieDay] = useState<CheckIn | null>(null);
+  const [hasFoodLog,setHasFoodLog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [revision, setRevision] = useState(0);
@@ -30,7 +31,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
 
   useEffect(() => {
     let live = true;
-    setEntries([]); setTotals(null); setCalorieDay(null); setError(undefined);
+    setEntries([]); setTotals(null); setCalorieDay(null); setHasFoodLog(false); setError(undefined);
     if (!diaryVisible && !totalsVisible) return () => { live = false; };
     setLoading(true);
     void Promise.all([
@@ -41,6 +42,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
       if (!live) return;
       if(checkIn.error) throw checkIn.error;
       setCalorieDay(checkIn.data);
+      setHasFoodLog(summary.length>0 || rows.length>0);
       setEntries(rows);
       setTotals(totalsVisible ? { calories: Number(summary[0]?.calories ?? 0), protein: Number(summary[0]?.protein ?? 0) } : null);
       setLoading(false);
@@ -62,7 +64,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
 
   const target = calorieDay ? Number(calorieDay.target_snapshot) : date===today ? calorieTarget?.target : undefined;
   const direction = calorieDay?.direction_snapshot ?? (calorieGoal && calorieTarget ? goalDirection(calorieGoal,calorieTarget) : undefined);
-  const semantics = calorieDay ? {lowerTolerance:Number(calorieDay.lower_tolerance_snapshot),upperTolerance:Number(calorieDay.upper_tolerance_snapshot),partialUnderTolerance:Number(calorieDay.partial_under_tolerance_snapshot)} : calorieGoal && calorieTarget ? goalRangeSemantics(calorieGoal,calorieTarget) : undefined;
+  const semantics = calorieDay ? {lowerTolerance:Number(calorieDay.lower_tolerance_snapshot),upperTolerance:Number(calorieDay.upper_tolerance_snapshot),partialUnderTolerance:Number(calorieDay.partial_under_tolerance_snapshot),loggedRequired:calorieDay.logged_required_snapshot} : calorieGoal && calorieTarget ? goalRangeSemantics(calorieGoal,calorieTarget) : undefined;
   if (partner && !diaryVisible && !totalsVisible) return <div className="rounded-[1.5rem] bg-surface p-8 text-center shadow-soft"><p className="font-bold">Nutrition sharing is turned off.</p><p className="mt-2 text-sm text-muted">Your partner keeps this information private.</p></div>;
   return <div className="space-y-4">
     {history && <label className="block rounded-[1.25rem] bg-surface p-4 text-sm font-bold shadow-soft">Choose a day
@@ -72,7 +74,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
       <span className="mt-2 block text-xs font-normal text-muted">The most recent 14 duo days. Values use the nutrition saved when each meal was logged.</span>
     </label>}
     {totalsVisible && <section className="grid grid-cols-2 gap-3" aria-label={`${date} nutrition totals`}>
-      <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : formatNutrition(totals?.calories ?? 0,"kcal")}</p>{!loading&&!error&&direction==="range"&&target!==undefined&&<CalorieRangeSummary value={totals?.calories??0} target={target} semantics={semantics} />}</div>
+      <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : hasFoodLog ? formatNutrition(totals?.calories ?? 0,"kcal") : "No food logged"}</p>{!loading&&!error&&(direction==="range"||semantics?.loggedRequired)&&target!==undefined&&<CalorieRangeSummary value={totals?.calories??0} target={target} semantics={semantics} hasFoodLog={calorieDay?.logged_required_snapshot ? calorieDay.has_food_log : hasFoodLog} finalized={Boolean(calorieDay?.finalized_at)} />}</div>
       <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Protein</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : formatNutrition(totals?.protein ?? 0,"g")}</p></div>
     </section>}
     {diaryVisible ? <section className="rounded-[1.5rem] bg-surface p-4 shadow-soft"><h2 className="font-bold">{history ? `${date} food` : "Today’s food"}</h2>

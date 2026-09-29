@@ -475,8 +475,10 @@ export type Database = {
           direction_snapshot: string
           finalized_at: string | null
           goal_id: string
+          has_food_log: boolean
           id: string
           local_date: string
+          logged_required_snapshot: boolean
           lower_tolerance_snapshot: number | null
           partial_under_tolerance_snapshot: number | null
           target_snapshot: number | null
@@ -495,8 +497,10 @@ export type Database = {
           direction_snapshot?: string
           finalized_at?: string | null
           goal_id: string
+          has_food_log?: boolean
           id?: string
           local_date: string
+          logged_required_snapshot?: boolean
           lower_tolerance_snapshot?: number | null
           partial_under_tolerance_snapshot?: number | null
           target_snapshot?: number | null
@@ -515,8 +519,10 @@ export type Database = {
           direction_snapshot?: string
           finalized_at?: string | null
           goal_id?: string
+          has_food_log?: boolean
           id?: string
           local_date?: string
+          logged_required_snapshot?: boolean
           lower_tolerance_snapshot?: number | null
           partial_under_tolerance_snapshot?: number | null
           target_snapshot?: number | null
@@ -589,6 +595,8 @@ export type Database = {
           duo_id: string
           icon_key: string
           id: string
+          logged_required: boolean
+          logged_rule_effective_from: string | null
           lower_tolerance: number
           measurement_kind: string | null
           name: string
@@ -613,6 +621,8 @@ export type Database = {
           duo_id: string
           icon_key?: string
           id?: string
+          logged_required?: boolean
+          logged_rule_effective_from?: string | null
           lower_tolerance?: number
           measurement_kind?: string | null
           name: string
@@ -637,6 +647,8 @@ export type Database = {
           duo_id?: string
           icon_key?: string
           id?: string
+          logged_required?: boolean
+          logged_rule_effective_from?: string | null
           lower_tolerance?: number
           measurement_kind?: string | null
           name?: string
@@ -851,6 +863,35 @@ export type Database = {
           },
         ]
       }
+      user_activity_days: {
+        Row: {
+          duo_id: string
+          local_date: string
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          duo_id: string
+          local_date: string
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          duo_id?: string
+          local_date?: string
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_days_duo_id_user_id_fkey"
+            columns: ["duo_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "duo_members"
+            referencedColumns: ["duo_id", "user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -979,8 +1020,10 @@ export type Database = {
           direction_snapshot: string
           finalized_at: string | null
           goal_id: string
+          has_food_log: boolean
           id: string
           local_date: string
+          logged_required_snapshot: boolean
           lower_tolerance_snapshot: number | null
           partial_under_tolerance_snapshot: number | null
           target_snapshot: number | null

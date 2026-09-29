@@ -24,8 +24,8 @@ export function ProgressSummary({ summary, currentStreak, bestStreak, perfectDay
         ))}
       </div>
       <div className="mt-5 grid grid-cols-3 divide-x divide-line border-t border-line pt-4">
-        <Stat icon={Flame} value={`${currentStreak} days`} label="Duo streak" warm />
-        <Stat icon={Trophy} value={`${bestStreak} days`} label="Best streak" />
+        <Stat icon={Flame} value={`${currentStreak} days`} label="Activity streak" warm />
+        <Stat icon={Trophy} value={`${bestStreak} days`} label="Best activity streak" />
         <Stat icon={Sparkles} value={`${perfectDays}`} label="Perfect days" warm />
       </div>
     </motion.section>
