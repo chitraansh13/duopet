@@ -36,17 +36,21 @@ export async function ensureDefaultGoals(client: Client) {
   if (error) fail("Your starter goals couldn’t be prepared. Please try again.");
 }
 
-export async function loadGoalState(client: Client, duoId: string, date: string): Promise<GoalState> {
-  const goalsResult = await client.from("goals").select("*").eq("duo_id", duoId).neq("status", "archived").order("created_at");
+export async function loadGoalState(client: Client, duoId: string, date: string, historical = false): Promise<GoalState> {
+  let query = client.from("goals").select("*").eq("duo_id", duoId).order("created_at");
+  if(!historical)query=query.neq("status","archived");
+  const goalsResult = await query;
   if (goalsResult.error) fail("Your goals couldn’t be loaded. Please refresh and try again.");
   const goalIds = goalsResult.data.map((goal) => goal.id);
   if (!goalIds.length) return { definitions: [], checkIns: [], date };
-  const [assignmentsResult, checkInsResult] = await Promise.all([
+  const [assignmentsResult, checkInsResult, statuses] = await Promise.all([
     client.from("goal_assignments").select("*").in("goal_id", goalIds),
     client.from("goal_checkins").select("*").in("goal_id", goalIds).eq("local_date", date),
+    historical ? client.from("goal_status_events").select("*").in("goal_id",goalIds).lte("effective_date",date).order("effective_date") : Promise.resolve({data:[],error:null}),
   ]);
-  if (assignmentsResult.error || checkInsResult.error) fail("Today’s goal progress couldn’t be loaded. Please refresh and try again.");
-  return goalStateFromRows(goalsResult.data, assignmentsResult.data, checkInsResult.data, date);
+  if (assignmentsResult.error || checkInsResult.error || statuses.error) fail("Goal progress couldn’t be loaded. Please refresh and try again.");
+  const definitions=historical ? goalsResult.data.flatMap(goal=>{const status=statuses.data?.filter(row=>row.goal_id===goal.id).at(-1)?.status;return status?[{...goal,status}]:[];}) : goalsResult.data;
+  return goalStateFromRows(definitions, assignmentsResult.data, checkInsResult.data, date);
 }
 
 export async function createGoal(client: Client, goal: GoalDefinition) {
@@ -89,6 +93,6 @@ export async function setGoalStatus(client: Client, goalId: string, status: Goal
 export async function saveCheckIn(client: Client, goal: GoalDefinition, date: string, value: number): Promise<CheckInRow> {
   const canonical = canonicalValue(Math.max(0, goal.trackingType === "boolean" ? Number(value >= 1) : value), goal.measurementKind, goal.unit);
   const { data, error } = await client.rpc("set_goal_checkin", { p_goal_id: goal.id, p_local_date: date, p_value: canonical });
-  if (error || !data) fail("Your progress couldn’t be updated. Please try again.");
+  if (error || !data) fail(error?.message.includes("EDITING_WINDOW_CLOSED") ? "Editing window closed. Choose a recent editable day." : "Your progress couldn’t be updated. Please try again.");
   return data;
 }

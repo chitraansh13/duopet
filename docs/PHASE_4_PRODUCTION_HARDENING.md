@@ -80,3 +80,7 @@ Push notifications are deferred. If added, use per-user opt-in preferences and q
 The existing scheduled wrapper/job still finalizes Calories through `finalize_due_goal_days()`. After `20260929155935_activity_streak_and_logged_calories.sql`, future/open calorie days require a genuine food entry and succeed at any total ≤ the day's own target snapshot + 200. Successful closed days earn 10 XP; unlogged/over-limit days earn zero. No midday calorie XP or new Cron job exists. Finalized legacy range days retain their original snapshots and any +5 XP award.
 
 The main current/best streak now means the caller's activity streak, derived from server-recorded `user_activity_days`. Positive manual input and genuine food logging/quantity edits record today's duo-local date; opens, passive zero projections, partner activity, and finalization do not. Streaks refresh immediately through mutation reconciliation and the existing runtime channel. Perfect Duo Day remains a separate, stricter duo achievement. See [Food and goal semantics](FOOD_AND_GOAL_SEMANTICS.md) for the full policy, boundaries, and historical backfill limits.
+
+## Recent-day corrections
+
+See [Recent-day backfill](RECENT_DAY_BACKFILL.md) for the 36-hour duo-local correction window. Finalized days and dormant challenge results remain correctable through trusted owner RPCs while grace is open; expiry freezes normal user edits. The existing scheduled finalizer and deterministic XP ledger remain authoritative.

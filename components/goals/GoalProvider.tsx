@@ -18,11 +18,12 @@ interface GoalContextValue {
   partnerUserId: UserId;
   saving: boolean;
   error?: string;
+  revision: number;
   addGoal: (goal: GoalDefinition) => Promise<string | null>;
   updateGoal: (goal: GoalDefinition,timing?:"today"|"tomorrow") => Promise<string | null>;
   deleteGoal: (goalId: string) => Promise<boolean>;
   setStatus: (goalId: string, status: GoalStatus) => Promise<boolean>;
-  setProgress: (goalId: string, userId: UserId, value: number) => Promise<boolean>;
+  setProgress: (goalId: string, userId: UserId, value: number, date?: string) => Promise<boolean>;
   refreshGoals: () => Promise<void>;
 }
 const GoalContext = createContext<GoalContextValue | null>(null);
@@ -37,6 +38,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
   if (!partnerUserId) throw new Error("GoalProvider requires a complete duo");
   const client = useMemo(() => createClient(), []);
   const [state, setState] = useState(initialState);
+  const [revision,setRevision]=useState(0);
   const sharingRef = useRef(partnerSharing);
   sharingRef.current = partnerSharing;
   const [saving, setSaving] = useState(false);
@@ -71,12 +73,15 @@ export function GoalProvider({ children, initialState }: { children: React.React
 
   useEffect(() => {
     const relevantUsers = new Set([profile.id, partnerUserId]);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const reconcile=()=>{setRevision(value=>value+1);if(timer)clearTimeout(timer);timer=setTimeout(()=>{void refreshRuntime();},120);};
     let connected = false;
     const channel = client.channel(`duo-goals:${duo.id}:${state.date}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "goal_checkins", filter: `local_date=eq.${state.date}` }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "goal_checkins" }, (payload) => {
         const row = (payload.eventType === "DELETE" ? payload.old : payload.new) as Partial<CheckInRow>;
         if (!row.goal_id || !row.user_id || !relevantUsers.has(row.user_id) || !row.local_date) return;
         setState((current) => redactPartnerGoals(mergeCheckIn(current, row as CheckInRow, payload.eventType === "DELETE" ? "delete" : "upsert"),partnerUserId,sharingRef.current));
+        reconcile();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "goals", filter: `duo_id=eq.${duo.id}` }, () => { void refresh(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "goal_assignments" }, (payload) => {
@@ -86,8 +91,8 @@ export function GoalProvider({ children, initialState }: { children: React.React
       .subscribe((status) => { if (status === "SUBSCRIBED") { if (connected) void refresh(); connected = true; } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reportIssue("realtime.goals",{code:status}); });
     const online = () => { void refresh(); };
     window.addEventListener("online",online);
-    return () => { window.removeEventListener("online",online); void client.removeChannel(channel); };
-  }, [client, duo.id, partnerUserId, profile.id, refresh, state.date]);
+    return () => { if(timer)clearTimeout(timer);window.removeEventListener("online",online); void client.removeChannel(channel); };
+  }, [client, duo.id, partnerUserId, profile.id, refresh, refreshRuntime, state.date]);
 
   const goals = useMemo(() => selectGoals(redactPartnerGoals(state,partnerUserId,partnerSharing)), [state,partnerUserId,partnerSharing]);
   useEffect(()=>()=>{if(noticeTimer.current)clearTimeout(noticeTimer.current);},[]);
@@ -107,6 +112,7 @@ export function GoalProvider({ children, initialState }: { children: React.React
     partnerUserId,
     saving,
     error,
+    revision,
     refreshGoals,
     addGoal: async (goal) => mutate(async () => { const id = await createGoal(client, goal); await refresh(); return id; },"Goal added"),
     updateGoal: async (goal,timing="today") => {
@@ -124,16 +130,17 @@ export function GoalProvider({ children, initialState }: { children: React.React
     },
     deleteGoal: async (goalId) => Boolean(await mutate(async () => { await setGoalStatus(client, goalId, "archived"); setState((current) => ({ ...current, definitions: current.definitions.filter((goal) => goal.id !== goalId), checkIns: current.checkIns.filter((entry) => entry.goalId !== goalId) })); return true; },"Goal removed")),
     setStatus: async (goalId, status) => Boolean(await mutate(async () => { await setGoalStatus(client, goalId, status); setState((current) => ({ ...current, definitions: current.definitions.map((goal) => goal.id === goalId ? { ...goal, status } : goal) })); return true; },status==="paused"?"Goal paused":"Goal resumed")),
-    setProgress: async (goalId, userId, progress) => {
+    setProgress: async (goalId, userId, progress, date=state.date) => {
       if (userId !== profile.id) { setError("You can only update your own progress."); return false; }
-      const key = `${goalId}:${userId}:${state.date}`;
+      const key = `${goalId}:${userId}:${date}`;
       const previous = checkInQueue.current.get(key) ?? Promise.resolve(true);
       const queued = previous.catch(() => false).then(async () => Boolean(await mutate(async () => {
-        const goal = goals.find((item) => item.id === goalId);
+        const goal = date===state.date ? goals.find((item)=>item.id===goalId) : selectGoals(await loadGoalState(client,duo.id,date,true)).find((item)=>item.id===goalId);
         if (!goal) throw new GoalRepositoryError("This goal is no longer available.");
         if (goal.progressSource && goal.progressSource !== "manual") throw new GoalRepositoryError("Log food to update this goal.");
-        const row = await saveCheckIn(client, goal, state.date, progress);
+        const row = await saveCheckIn(client, goal, date, progress);
         setState((current) => mergeCheckIn(current, row, "upsert"));
+        setRevision(value=>value+1);
         await refreshRuntime();
         return true;
       })));

@@ -2,19 +2,39 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGoals } from "@/components/goals/GoalProvider";
 import { useSession } from "@/components/SessionProvider";
 import { getGoalTarget } from "@/lib/goal-data";
 import { TaskDetail } from "./TaskDetail";
 import { TaskRow } from "./TaskRow";
+import { useEditableDays } from "@/components/useEditableDays";
+import { EditableDaySelector } from "@/components/EditableDaySelector";
+import { createClient } from "@/lib/supabase/client";
+import { loadGoalState } from "@/lib/repositories/goals";
+import { selectGoals } from "@/lib/goal-state";
+import type { GoalDefinition } from "@/lib/goal-data";
 
 type Filter = "all" | "shared" | "mine" | "paused";
 const filters: Array<{ id: Filter; label: string }> = [{ id: "all", label: "All" }, { id: "shared", label: "Shared" }, { id: "mine", label: "Mine" }, { id: "paused", label: "Paused" }];
 
 export function TasksDashboard() {
-  const { goals, currentUserId } = useGoals();
-  const { partnerSharing,sharingLoaded } = useSession();
+  const { goals:todayGoals, currentUserId,revision,saving } = useGoals();
+  const { duo,partnerSharing,sharingLoaded } = useSession();
+  const editWindow=useEditableDays(duo.timezone);
+  const client=useMemo(()=>createClient(),[]);
+  const [pastGoals,setPastGoals]=useState<GoalDefinition[]>([]);
+  const [loading,setLoading]=useState(false);
+  const [loadError,setLoadError]=useState<string>();
+  const [retry,setRetry]=useState(0);
+  useEffect(()=>{
+    let live=true;setPastGoals([]);setLoadError(undefined);
+    if(editWindow.date===editWindow.today){setLoading(false);return()=>{live=false;};}
+    setLoading(true);
+    loadGoalState(client,duo.id,editWindow.date,true).then(state=>{if(live){setPastGoals(selectGoals(state));setLoading(false);}}).catch(()=>{if(live){setLoadError("This day couldn’t be loaded. Please retry.");setLoading(false);}});
+    return()=>{live=false;};
+  },[client,duo.id,editWindow.date,editWindow.today,revision,partnerSharing,retry]);
+  const goals=(editWindow.date===editWindow.today?todayGoals:pastGoals).filter(goal=>goal.scope==="shared"||getGoalTarget(goal,currentUserId)||partnerSharing.share_personal_goals);
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelected] = useState<string | null>(null);
   const selected = goals.find((goal) => goal.id === selectedId);
@@ -33,6 +53,9 @@ export function TasksDashboard() {
   return (
     <div className="space-y-5 py-4 sm:space-y-6 sm:py-7">
       <header className="flex items-end justify-between gap-4"><div><p className="text-sm font-medium text-muted">Your shared rhythm</p><h1 className="mt-1 text-[2rem] font-bold tracking-[-0.035em] sm:text-4xl">Tasks</h1><p className="mt-2 text-sm text-muted">Everything you’re working on.</p></div><Link href="/tasks/manage" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-accent px-4 text-sm font-bold text-on-accent shadow-soft"><Plus className="size-4" />Add Goal</Link></header>
+      <EditableDaySelector window={editWindow} timezone={duo.timezone} disabled={saving} onChange={date=>{setSelected(null);editWindow.selectDate(date);}} />
+      {loading&&<p className="text-sm text-muted">Loading this day’s progress…</p>}
+      {loadError&&<p role="alert" className="text-sm text-accent">{loadError} <button type="button" className="font-bold underline" onClick={()=>setRetry(value=>value+1)}>Try again</button></p>}
 
       <div className="inline-flex rounded-[14px] bg-subtle p-1" role="group" aria-label="Task filters">{filters.map((item) => <button key={item.id} type="button" onClick={() => { setFilter(item.id); setSelected(null); }} aria-pressed={filter === item.id} className={`relative min-h-11 rounded-[11px] px-4 text-xs font-semibold ${filter === item.id ? "text-ink" : "text-muted"}`}>{filter === item.id && <motion.span layoutId="task-filter" className="absolute inset-0 rounded-[11px] bg-surface shadow-soft" />}<span className="relative">{item.label}</span></button>)}</div>
 
@@ -42,9 +65,9 @@ export function TasksDashboard() {
           {personal.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">My goals</h2><span className="text-xs text-muted">Only you can update these</span></div><div className="grid gap-3 md:grid-cols-2">{personal.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
           {partnerPersonal.length > 0 && <section><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">Partner’s personal goals</h2><span className="text-xs text-muted">Read only</span></div><div className="grid gap-3 md:grid-cols-2">{partnerPersonal.map((goal) => <TaskRow key={goal.id} goal={goal} selected={selected?.id === goal.id} onSelect={() => setSelected(goal.id)} />)}</div></section>}
           {filter==="all"&&sharingLoaded&&!partnerSharing.share_personal_goals&&<p className="text-xs text-muted">Your partner’s personal goals are private.</p>}
-          {visible.length === 0 && <div className="rounded-[1.5rem] bg-surface p-10 text-center shadow-soft"><p className="font-bold">Nothing here yet.</p><p className="mt-1 text-sm text-muted">Paused goals will wait here until you’re ready.</p></div>}
+          {visible.length === 0 && !loading && !loadError && <div className="rounded-[1.5rem] bg-surface p-10 text-center shadow-soft"><p className="font-bold">Nothing here yet.</p><p className="mt-1 text-sm text-muted">Paused goals will wait here until you’re ready.</p></div>}
         </div>
-        <AnimatePresence mode="wait">{selected ? <motion.div key={selected.id} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}><TaskDetail goal={selected} onClose={() => setSelected(null)} /></motion.div> : <aside className="hidden rounded-[1.5rem] bg-surface p-6 text-center shadow-soft lg:block"><p className="font-bold">Choose a task</p><p className="mt-2 text-sm leading-6 text-muted">Open any goal to see targets, today’s status, and recent history.</p></aside>}</AnimatePresence>
+        <AnimatePresence mode="wait">{selected ? <motion.div key={`${selected.id}:${editWindow.date}`} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}><TaskDetail goal={selected} date={editWindow.date} editable={editWindow.editable} onClose={() => setSelected(null)} /></motion.div> : <aside className="hidden rounded-[1.5rem] bg-surface p-6 text-center shadow-soft lg:block"><p className="font-bold">Choose a task</p><p className="mt-2 text-sm leading-6 text-muted">Open any goal to see targets, the selected day’s status, and recent history.</p></aside>}</AnimatePresence>
       </div>
       <div className="flex justify-center"><Link href="/tasks/manage" className="inline-flex min-h-11 items-center text-xs font-bold text-accent">Manage goals</Link></div>
     </div>

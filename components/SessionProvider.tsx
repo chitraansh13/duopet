@@ -141,7 +141,8 @@ export function SessionProvider({ children, account, initialRuntime }: { childre
       .on("postgres_changes",{event:"*",schema:"public",table:"duo_pets",filter},refresh)
       .on("postgres_changes",{event:"*",schema:"public",table:"pet_room_items",filter},refresh)
       .on("postgres_changes",{event:"*",schema:"public",table:"pet_unlocks",filter},refresh)
-      .on("postgres_changes",{event:"*",schema:"public",table:"challenges",filter},refresh)
+        .on("postgres_changes",{event:"*",schema:"public",table:"challenges",filter},refresh)
+        .on("postgres_changes",{event:"*",schema:"public",table:"challenge_results"},refresh)
       .subscribe((status)=>{if(status==="SUBSCRIBED"){if(connected)refresh();connected=true;}else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")reportIssue("realtime.runtime",{code:status});});
     const online=()=>refresh();
     const visible=()=>{if(document.visibilityState==="visible")refresh();};

@@ -945,6 +945,15 @@ export type Database = {
         }[]
       }
       get_duo_context: { Args: never; Returns: Json }
+      get_editable_days: {
+        Args: never
+        Returns: {
+          editable_until: string
+          is_today: boolean
+          local_date: string
+          server_now: string
+        }[]
+      }
       get_food_totals: {
         Args: { p_from: string; p_to: string; p_user_id: string }
         Returns: {
@@ -987,7 +996,12 @@ export type Database = {
         Returns: string
       }
       save_food_log: {
-        Args: { p_entry_id?: string; p_food_id: string; p_quantity: number }
+        Args: {
+          p_entry_id?: string
+          p_food_id: string
+          p_local_date?: string
+          p_quantity: number
+        }
         Returns: {
           calories_snapshot: number
           created_at: string

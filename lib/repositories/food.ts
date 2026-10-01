@@ -66,14 +66,14 @@ export async function archiveFood(client: Client, food: Food, userId: string) {
   if (error || !data) throw new FoodRepositoryError("This food couldn’t be removed. Please retry.");
 }
 
-export async function saveFoodLog(client: Client, foodId: string, quantity: number, entryId?: string) {
+export async function saveFoodLog(client: Client, foodId: string, quantity: number, entryId?: string, date?: string) {
   if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 100) throw new FoodRepositoryError("Enter a quantity above zero and at most 100 servings.");
-  const { data, error } = await client.rpc("save_food_log", { p_food_id: foodId, p_quantity: quantity, p_entry_id: entryId });
-  if (error || !data) throw new FoodRepositoryError("Your food couldn’t be logged. Please retry.");
+  const { data, error } = await client.rpc("save_food_log", { p_food_id: foodId, p_quantity: quantity, p_entry_id: entryId, p_local_date: date });
+  if (error || !data) throw new FoodRepositoryError(error?.message.includes("EDITING_WINDOW_CLOSED") ? "Editing window closed. Choose a recent editable day." : "Your food couldn’t be logged. Please retry.");
   return data;
 }
 
 export async function deleteFoodLog(client: Client, entryId: string) {
   const { error } = await client.rpc("delete_food_log", { p_entry_id: entryId });
-  if (error) throw new FoodRepositoryError("This entry couldn’t be deleted. Please retry.");
+  if (error) throw new FoodRepositoryError(error.message.includes("EDITING_WINDOW_CLOSED") ? "Editing window closed. This day is now read only." : "This entry couldn’t be deleted. Please retry.");
 }

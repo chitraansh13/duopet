@@ -10,12 +10,14 @@ import { reportIssue } from "@/lib/diagnostics";
 import { CalorieRangeSummary } from "@/components/goals/CalorieRangeSummary";
 import { goalDirection, goalRangeSemantics, type GoalDefinition, type GoalTarget } from "@/lib/goal-data";
 import type { Database } from "@/lib/supabase/database.types";
+import type { EditableDay } from "@/lib/backfill";
 
 type CheckIn = Database["public"]["Tables"]["goal_checkins"]["Row"];
 
-export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diaryVisible, totalsVisible, partner, calorieGoal, calorieTarget }: {
+export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diaryVisible, totalsVisible, partner, calorieGoal, calorieTarget,editableDays=[],onEditDate }: {
   duoId: string; userId: string; today: string; timezone: string; history: boolean;
   diaryVisible: boolean; totalsVisible: boolean; partner: boolean; calorieGoal?: GoalDefinition; calorieTarget?: GoalTarget;
+  editableDays?:EditableDay[];onEditDate?:(date:string)=>void;
 }) {
   const client = useMemo(() => createClient(), []);
   const [selectedDate, setSelectedDate] = useState(today);
@@ -73,6 +75,7 @@ export function FoodHistoryPanel({ duoId, userId, today, timezone, history, diar
       </select>
       <span className="mt-2 block text-xs font-normal text-muted">The most recent 14 duo days. Values use the nutrition saved when each meal was logged.</span>
     </label>}
+    {history&&!partner&&(editableDays.some(day=>day.local_date===date)?<button type="button" onClick={()=>onEditDate?.(date)} className="min-h-11 rounded-xl bg-accent-soft px-4 text-xs font-bold text-accent">Edit this day</button>:<p className="text-xs text-muted">Editing window closed</p>)}
     {totalsVisible && <section className="grid grid-cols-2 gap-3" aria-label={`${date} nutrition totals`}>
       <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Calories</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : hasFoodLog ? formatNutrition(totals?.calories ?? 0,"kcal") : "No food logged"}</p>{!loading&&!error&&(direction==="range"||semantics?.loggedRequired)&&target!==undefined&&<CalorieRangeSummary value={totals?.calories??0} target={target} semantics={semantics} hasFoodLog={calorieDay?.logged_required_snapshot ? calorieDay.has_food_log : hasFoodLog} finalized={Boolean(calorieDay?.finalized_at)} />}</div>
       <div className="rounded-[1.25rem] bg-surface p-4 shadow-soft"><p className="text-xs font-bold text-muted">Protein</p><p className="mt-2 text-xl font-bold">{loading || error ? "…" : formatNutrition(totals?.protein ?? 0,"g")}</p></div>
